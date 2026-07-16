@@ -24,12 +24,43 @@
 
 금액과 포인트는 정수만 허용한다. 소수, 0과 음수 충전은 허용하지 않는다.
 
+## 공통 성공 응답
+
+모든 성공 응답은 `code`, `message`, `data`를 반환한다.
+
+```json
+{
+  "code": "SUCCESS",
+  "message": "요청이 성공적으로 처리되었습니다.",
+  "data": {}
+}
+```
+
+| 필드 | 타입 | 필수 | 설명 |
+|---|---|---|---|
+| `code` | string | O | 클라이언트가 결과를 구분할 수 있는 응답 코드 |
+| `message` | string | O | 요청 처리 결과에 대한 설명 |
+| `data` | object, array 또는 null | O | API별 응답 데이터 |
+
+목록을 페이지 단위로 반환하는 API의 `data`는 다음 공통 필드를 사용한다.
+
+| 필드 | 타입 | 필수 | 설명 |
+|---|---|---|---|
+| `content` | array | O | 현재 페이지의 데이터 |
+| `page` | int | O | 현재 페이지 번호 |
+| `size` | int | O | 요청한 페이지 크기 |
+| `totalElements` | long | O | 전체 데이터 수 |
+| `totalPages` | int | O | 전체 페이지 수 |
+| `first` | boolean | O | 첫 페이지 여부 |
+| `last` | boolean | O | 마지막 페이지 여부 |
+
 ## 공통 오류 응답
 
 ```json
 {
   "code": "USER_NOT_FOUND",
-  "message": "사용자를 찾을 수 없습니다."
+  "message": "사용자를 찾을 수 없습니다.",
+  "data": null
 }
 ```
 
@@ -37,18 +68,14 @@
 |---|---|---|---|
 | `code` | string | O | 클라이언트가 분기 처리할 수 있는 오류 코드 |
 | `message` | string | O | 사용자가 이해할 수 있는 오류 설명 |
+| `data` | null | O | 오류 응답에서는 `null` |
 
-요청 필드 검증에 실패하면 다음처럼 `fieldErrors`를 추가할 수 있다.
+요청 값 검증에 실패하면 `INVALID_REQUEST` 코드와 구체적인 실패 이유를 반환한다.
 
 ```json
 {
   "code": "INVALID_REQUEST",
   "message": "요청 값이 올바르지 않습니다.",
-  "fieldErrors": [
-    {
-      "field": "amount",
-      "reason": "1 이상의 정수여야 합니다."
-    }
-  ]
+  "data": null
 }
 ```

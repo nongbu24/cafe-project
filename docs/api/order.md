@@ -40,29 +40,35 @@ Location: /api/v1/orders/1001
 
 ```json
 {
-  "orderId": 1001,
-  "userId": 10,
-  "menu": {
-    "menuId": 2,
-    "name": "카페라테"
-  },
-  "paymentAmount": 5000,
-  "pointBalance": 8500,
-  "status": "PAID",
-  "paidAt": "2026-07-16T14:35:00+09:00"
+  "code": "SUCCESS",
+  "message": "요청이 성공적으로 처리되었습니다.",
+  "data": {
+    "orderId": 1001,
+    "userId": 10,
+    "menu": {
+      "menuId": 2,
+      "name": "카페라테"
+    },
+    "paymentAmount": 5000,
+    "pointBalance": 8500,
+    "status": "PAID",
+    "paidAt": "2026-07-16T14:35:00+09:00"
+  }
 }
 ```
 
 | 필드 | 타입 | 필수 | 설명 |
 |---|---|---|---|
-| `orderId` | long | O | 주문 식별값 |
-| `userId` | long | O | 사용자 식별값 |
-| `menu.menuId` | long | O | 주문한 메뉴 식별값 |
-| `menu.name` | string | O | 주문 당시 메뉴 이름 |
-| `paymentAmount` | long | O | 차감한 포인트 |
-| `pointBalance` | long | O | 결제 완료 후 잔액 |
-| `status` | string | O | 결제 완료 상태 `PAID` |
-| `paidAt` | string | O | 결제 완료 시각 |
+| `code` | string | O | 성공 응답 코드 `SUCCESS` |
+| `message` | string | O | 요청 처리 결과 설명 |
+| `data.orderId` | long | O | 주문 식별값 |
+| `data.userId` | long | O | 사용자 식별값 |
+| `data.menu.menuId` | long | O | 주문한 메뉴 식별값 |
+| `data.menu.name` | string | O | 주문 당시 메뉴 이름 |
+| `data.paymentAmount` | long | O | 차감한 포인트 |
+| `data.pointBalance` | long | O | 결제 완료 후 잔액 |
+| `data.status` | string | O | 결제 완료 상태 `PAID` |
+| `data.paidAt` | string | O | 결제 완료 시각 |
 
 ### 오류 응답
 

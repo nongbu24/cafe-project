@@ -31,19 +31,25 @@ Content-Type: application/json
 
 ```json
 {
-  "userId": 10,
-  "chargedAmount": 10000,
-  "pointBalance": 13500,
-  "chargedAt": "2026-07-16T14:30:00+09:00"
+  "code": "SUCCESS",
+  "message": "요청이 성공적으로 처리되었습니다.",
+  "data": {
+    "userId": 10,
+    "chargedAmount": 10000,
+    "pointBalance": 13500,
+    "chargedAt": "2026-07-16T14:30:00+09:00"
+  }
 }
 ```
 
 | 필드 | 타입 | 필수 | 설명 |
 |---|---|---|---|
-| `userId` | long | O | 사용자 식별값 |
-| `chargedAmount` | long | O | 이번에 충전한 포인트 |
-| `pointBalance` | long | O | 충전 완료 후 잔액 |
-| `chargedAt` | string | O | 충전 완료 시각 |
+| `code` | string | O | 성공 응답 코드 `SUCCESS` |
+| `message` | string | O | 요청 처리 결과 설명 |
+| `data.userId` | long | O | 사용자 식별값 |
+| `data.chargedAmount` | long | O | 이번에 충전한 포인트 |
+| `data.pointBalance` | long | O | 충전 완료 후 잔액 |
+| `data.chargedAt` | string | O | 충전 완료 시각 |
 
 ### 오류 응답
 

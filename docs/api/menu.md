@@ -63,37 +63,43 @@ GET /api/v1/menus/popular
 
 ```json
 {
-  "from": "2026-07-09T15:00:00+09:00",
-  "to": "2026-07-16T15:00:00+09:00",
-  "menus": [
-    {
-      "rank": 1,
-      "menuId": 2,
-      "name": "카페라테",
-      "price": 5000,
-      "orderCount": 18
-    },
-    {
-      "rank": 2,
-      "menuId": 1,
-      "name": "아메리카노",
-      "price": 4500,
-      "orderCount": 12
-    }
-  ]
+  "code": "SUCCESS",
+  "message": "요청이 성공적으로 처리되었습니다.",
+  "data": {
+    "from": "2026-07-09T15:00:00+09:00",
+    "to": "2026-07-16T15:00:00+09:00",
+    "menus": [
+      {
+        "rank": 1,
+        "menuId": 2,
+        "name": "카페라테",
+        "price": 5000,
+        "orderCount": 18
+      },
+      {
+        "rank": 2,
+        "menuId": 1,
+        "name": "아메리카노",
+        "price": 4500,
+        "orderCount": 12
+      }
+    ]
+  }
 }
 ```
 
 | 필드 | 타입 | 필수 | 설명 |
 |---|---|---|---|
-| `from` | string | O | 집계 시작 시각, 포함 |
-| `to` | string | O | 집계 종료 시각, 미포함 |
-| `menus` | array | O | 인기 메뉴 목록. 주문이 없으면 빈 배열 |
-| `menus[].rank` | int | O | 응답 내 순위, 1부터 시작 |
-| `menus[].menuId` | long | O | 메뉴 식별값 |
-| `menus[].name` | string | O | 현재 메뉴 이름 |
-| `menus[].price` | long | O | 현재 메뉴 가격 |
-| `menus[].orderCount` | long | O | 집계 구간 내 결제 완료 주문 횟수 |
+| `code` | string | O | 성공 응답 코드 `SUCCESS` |
+| `message` | string | O | 요청 처리 결과 설명 |
+| `data.from` | string | O | 집계 시작 시각, 포함 |
+| `data.to` | string | O | 집계 종료 시각, 미포함 |
+| `data.menus` | array | O | 인기 메뉴 목록. 주문이 없으면 빈 배열 |
+| `data.menus[].rank` | int | O | 응답 내 순위, 1부터 시작 |
+| `data.menus[].menuId` | long | O | 메뉴 식별값 |
+| `data.menus[].name` | string | O | 현재 메뉴 이름 |
+| `data.menus[].price` | long | O | 현재 메뉴 가격 |
+| `data.menus[].orderCount` | long | O | 집계 구간 내 결제 완료 주문 횟수 |
 
 ### 집계 규칙
 
