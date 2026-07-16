@@ -7,9 +7,9 @@
 
 다음 기능에 필요한 데이터 구조를 정의한다.
 
-- 커피 메뉴 목록 조회
+- 카페 메뉴 목록 조회
 - 회원 포인트 충전
-- 커피 주문 및 포인트 결제
+- 메뉴 주문 및 포인트 결제
 - 주문 내역의 데이터 수집 플랫폼 전송
 - 최근 7일간 인기 메뉴 3개 조회
 
@@ -22,7 +22,7 @@
 erDiagram
     USERS ||--o{ POINT_TRANSACTION : "포인트 거래"
     USERS ||--o{ ORDERS : "주문"
-    MENU ||--o{ ORDERS : "주문 대상"
+    MENUS ||--o{ ORDERS : "주문 대상"
     ORDERS ||--|| ORDER_EVENT_OUTBOX : "전송 이벤트"
 
     USERS {
@@ -32,12 +32,13 @@ erDiagram
         TIMESTAMP updated_at
     }
 
-    MENU {
+    MENUS {
         BIGINT id PK
         VARCHAR name
         BIGINT price
+        VARCHAR status
         TIMESTAMP created_at
-        TIMESTAMP updated_at
+        TIMESTAMP updated_at "NULL until modified"
     }
 
     POINT_TRANSACTION {
@@ -91,17 +92,21 @@ erDiagram
 
 포인트 잔액 갱신은 동시 요청에서 금액이 유실되지 않도록 회원 행을 비관적 쓰기 잠금으로 조회한 뒤 처리한다.
 
-### 3.2 `menu`
+### 3.2 `menus`
 
-판매할 커피 메뉴를 저장한다.
+카페에서 판매하는 메뉴 정보를 저장한다.
 
 | 컬럼 | 타입 | 제약조건 | 설명 |
 |---|---|---|---|
 | `id` | `BIGINT` | PK, 자동 증가 | 메뉴 식별값 |
 | `name` | `VARCHAR(100)` | NOT NULL | 메뉴 이름 |
 | `price` | `BIGINT` | NOT NULL, 1 이상 | 판매 가격, 1원은 1포인트와 동일 |
+| `status` | `VARCHAR(20)` | NOT NULL | `AVAILABLE`, `SOLD_OUT`, `DISCONTINUED` |
 | `created_at` | `TIMESTAMP` | NOT NULL | 생성 시각 |
-| `updated_at` | `TIMESTAMP` | NOT NULL | 마지막 수정 시각 |
+| `updated_at` | `TIMESTAMP` | NULL | 마지막 수정 시각. 생성 이후 수정되지 않았으면 `NULL` |
+
+메뉴 상태는 `AVAILABLE`이면 판매중, `SOLD_OUT`이면 품절, `DISCONTINUED`이면 단종을 의미한다.
+메뉴 목록 조회에는 판매중과 품절 메뉴만 포함한다.
 
 ### 3.3 `point_transaction`
 
@@ -122,13 +127,13 @@ erDiagram
 
 ### 3.4 `orders`
 
-결제가 완료된 커피 주문을 저장한다. 현재 요구사항에서는 한 주문에 메뉴 한 개만 포함한다.
+결제가 완료된 메뉴 주문을 저장한다. 현재 요구사항에서는 한 주문에 메뉴 한 개만 포함한다.
 
 | 컬럼 | 타입 | 제약조건 | 설명 |
 |---|---|---|---|
 | `id` | `BIGINT` | PK, 자동 증가 | 주문 식별값 |
 | `user_id` | `BIGINT` | NOT NULL, FK → `users.id` | 주문 회원 |
-| `menu_id` | `BIGINT` | NOT NULL, FK → `menu.id` | 주문 메뉴 |
+| `menu_id` | `BIGINT` | NOT NULL, FK → `menus.id` | 주문 메뉴 |
 | `menu_name` | `VARCHAR(100)` | NOT NULL | 주문 당시 메뉴 이름 스냅샷 |
 | `payment_amount` | `BIGINT` | NOT NULL, 1 이상 | 주문 당시 결제 금액 스냅샷 |
 | `status` | `VARCHAR(20)` | NOT NULL | 현재 범위에서는 `PAID` 사용 |
