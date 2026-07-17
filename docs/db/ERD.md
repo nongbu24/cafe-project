@@ -27,7 +27,11 @@ erDiagram
 
     USERS {
         BIGINT id PK
+        VARCHAR username UK
+        VARCHAR password
+        VARCHAR user_status
         BIGINT point_balance
+        BOOLEAN is_deleted
         TIMESTAMP created_at
         TIMESTAMP updated_at
     }
@@ -86,11 +90,16 @@ erDiagram
 | 컬럼 | 타입 | 제약조건 | 설명 |
 |---|---|---|---|
 | `id` | `BIGINT` | PK, 자동 증가 | 사용자 식별값 |
+| `username` | `VARCHAR(50)` | NOT NULL, UNIQUE | 로그인 식별값 |
+| `password` | `VARCHAR(60)` | NOT NULL | BCrypt 암호화 비밀번호 |
+| `user_status` | `VARCHAR(20)` | NOT NULL | `ADMIN` 또는 `USER` |
 | `point_balance` | `BIGINT` | NOT NULL, 기본값 0, 0 이상 | 현재 사용 가능한 포인트 |
+| `is_deleted` | `BOOLEAN` | NOT NULL, 기본값 `false` | 회원탈퇴 여부 |
 | `created_at` | `TIMESTAMP` | NOT NULL | 생성 시각 |
 | `updated_at` | `TIMESTAMP` | NOT NULL | 마지막 수정 시각 |
 
 포인트 잔액 갱신은 동시 요청에서 금액이 유실되지 않도록 회원 행을 비관적 쓰기 잠금으로 조회한 뒤 처리한다.
+회원탈퇴는 행을 삭제하지 않고 `is_deleted`를 `true`로 변경하며 탈퇴 회원의 로그인과 인증을 거부한다.
 
 ### 3.2 `menus`
 

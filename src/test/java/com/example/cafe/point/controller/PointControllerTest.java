@@ -32,8 +32,8 @@ class PointControllerTest {
 		jdbcTemplate.update("DELETE FROM users");
 		jdbcTemplate.update(
 			"""
-			INSERT INTO users (id, point_balance, created_at, updated_at)
-			VALUES (?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+			INSERT INTO users (id, username, password, user_status, point_balance, is_deleted, created_at, updated_at)
+			VALUES (?, 'point_test', 'encoded', 'USER', ?, FALSE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
 			""",
 			USER_ID,
 			3500

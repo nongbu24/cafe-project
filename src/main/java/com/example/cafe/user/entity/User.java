@@ -2,46 +2,51 @@ package com.example.cafe.user.entity;
 
 import com.example.cafe.common.exception.ApplicationException;
 import com.example.cafe.common.exception.ErrorCode;
+import com.example.cafe.common.entity.BaseEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
-import jakarta.persistence.PrePersist;
-import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
-import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "users")
-public class User {
+public class User extends BaseEntity {
 
 	@Id
 	@GeneratedValue(strategy = GenerationType.IDENTITY)
 	private Long id;
 
+	@Column(nullable = false, unique = true, length = 50)
+	private String username;
+
+	@Column(nullable = false, length = 60)
+	private String password;
+
+	@Enumerated(EnumType.STRING)
+	@Column(nullable = false, length = 20)
+	private UserStatus userStatus;
+
 	@Column(nullable = false)
 	private long pointBalance;
 
-	@Column(nullable = false, updatable = false)
-	private LocalDateTime createdAt;
-
-	@Column(nullable = false)
-	private LocalDateTime updatedAt;
+	@Column(name = "is_deleted", nullable = false, columnDefinition = "boolean default false")
+	private boolean deleted;
 
 	protected User() {
 	}
 
-	@PrePersist
-	void onCreate() {
-		LocalDateTime now = LocalDateTime.now();
-		createdAt = now;
-		updatedAt = now;
+	private User(String username, String password, UserStatus userStatus) {
+		this.username = username;
+		this.password = password;
+		this.userStatus = userStatus;
 	}
 
-	@PreUpdate
-	void onUpdate() {
-		updatedAt = LocalDateTime.now();
+	public static User signup(String username, String encodedPassword) {
+		return new User(username, encodedPassword, UserStatus.USER);
 	}
 
 	public Long getId() {
@@ -50,6 +55,30 @@ public class User {
 
 	public long getPointBalance() {
 		return pointBalance;
+	}
+
+	public String getUsername() {
+		return username;
+	}
+
+	public String getPassword() {
+		return password;
+	}
+
+	public UserStatus getUserStatus() {
+		return userStatus;
+	}
+
+	public boolean isDeleted() {
+		return deleted;
+	}
+
+	public boolean isWithdrawn() {
+		return deleted;
+	}
+
+	public void withdraw() {
+		deleted = true;
 	}
 
 	public void charge(long amount) {
