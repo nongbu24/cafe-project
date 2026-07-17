@@ -42,11 +42,11 @@
 | Gradle 버전 | `gradle/wrapper/gradle-wrapper.properties` | `docs/project-profile.md` | Wrapper 버전 변경 시 |
 | 실행·검증 명령 | `docs/project-profile.md` | 각 작업 기록의 실행 결과 | 명령이나 실행 환경 변경 시 |
 | 애플리케이션 설정 | `src/main/resources/application.properties` | `docs/project-profile.md` | 설정 구조나 환경 구분 변경 시 |
-| 비즈니스 정책 | `docs/api/menu.md`, `docs/api/point.md`, `docs/api/order.md` | `docs/api/README.md`, `docs/db/ERD.md`, 향후 코드와 테스트 | 포인트·결제·인기 집계 정책 변경 시 |
-| REST 계약 | `docs/api/README.md`, `docs/api/menu.md`, `docs/api/point.md`, `docs/api/order.md` | 향후 Controller, DTO와 API 테스트 | REST API 계약 변경 시 |
+| 비즈니스 정책 | `docs/api/auth.md`, `docs/api/menu.md`, `docs/api/point.md`, `docs/api/order.md` | `docs/api/README.md`, `docs/db/ERD.md`, 향후 코드와 테스트 | 인증·포인트·결제·인기 집계 정책 변경 시 |
+| REST 계약 | `docs/api/README.md`, `docs/api/auth.md`, `docs/api/menu.md`, `docs/api/point.md`, `docs/api/order.md` | Controller, DTO와 API 테스트 | REST API 계약 변경 시 |
 | WebSocket 계약 | 미정 | 코드와 테스트 | 첫 WebSocket 계약을 구현할 때 지정 |
 | DB 구조 | `docs/db/ERD.md` | 향후 Entity, DDL, 마이그레이션과 테스트 | DB 구조 변경 시 |
-| 기능의 의도된 동작 | `docs/api/menu.md`, `docs/api/point.md`, `docs/api/order.md` | `docs/api/README.md`, `docs/db/ERD.md`, 향후 코드와 테스트 | 카페 기능 동작 변경 시 |
+| 기능의 의도된 동작 | `docs/api/auth.md`, `docs/api/menu.md`, `docs/api/point.md`, `docs/api/order.md` | `docs/api/README.md`, `docs/db/ERD.md`, 향후 코드와 테스트 | 카페 기능 동작 변경 시 |
 | 작업 이력과 검증 증거 | `docs/dev/tasks/`의 각 작업 기록 | 관련 커밋·PR | 일반·보호 작업 수행 시 |
 | 빌드 생성물 | 소스 코드와 `build.gradle` | `build/` | `./gradlew build`로 재생성 |
 

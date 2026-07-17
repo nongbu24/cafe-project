@@ -1,0 +1,100 @@
+package com.example.cafe.auth.service;
+
+import com.example.cafe.auth.dto.LoginRequest;
+import com.example.cafe.auth.dto.LoginResponse;
+import com.example.cafe.auth.dto.SignupRequest;
+import com.example.cafe.auth.dto.UserResponse;
+import com.example.cafe.auth.store.TokenBlacklistStore;
+import com.example.cafe.common.exception.ApplicationException;
+import com.example.cafe.common.exception.ErrorCode;
+import com.example.cafe.user.entity.User;
+import com.example.cafe.user.repository.UserRepository;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+@Service
+public class AuthService {
+
+	private final UserRepository userRepository;
+	private final TokenBlacklistStore tokenBlacklistStore;
+	private final JwtTokenProvider jwtTokenProvider;
+	private final PasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
+
+	public AuthService(
+		UserRepository userRepository,
+		TokenBlacklistStore tokenBlacklistStore,
+		JwtTokenProvider jwtTokenProvider
+	) {
+		this.userRepository = userRepository;
+		this.tokenBlacklistStore = tokenBlacklistStore;
+		this.jwtTokenProvider = jwtTokenProvider;
+	}
+
+	@Transactional
+	public UserResponse signup(SignupRequest request) {
+		if (request == null) {
+			throw new ApplicationException(ErrorCode.INVALID_REQUEST);
+		}
+
+		validateCredentials(request.username(), request.password());
+
+		if (userRepository.existsByUsername(request.username())) {
+			throw new ApplicationException(ErrorCode.DUPLICATE_USERNAME);
+		}
+
+		User user = User.signup(request.username(), passwordEncoder.encode(request.password()));
+
+		return UserResponse.from(userRepository.save(user));
+	}
+
+	@Transactional(readOnly = true)
+	public LoginResponse login(LoginRequest request) {
+		if (request == null) {
+			throw new ApplicationException(ErrorCode.INVALID_REQUEST);
+		}
+		validateCredentials(request.username(), request.password());
+
+		User user = userRepository.findByUsername(request.username())
+			.filter(found -> !found.isWithdrawn())
+			.orElseThrow(() -> new ApplicationException(ErrorCode.INVALID_CREDENTIALS));
+
+		if (!passwordEncoder.matches(request.password(), user.getPassword())) {
+			throw new ApplicationException(ErrorCode.INVALID_CREDENTIALS);
+		}
+
+		IssuedToken issuedToken = jwtTokenProvider.issue(user);
+
+		return new LoginResponse("Bearer", issuedToken.value());
+	}
+
+	@Transactional
+	public void logout(TokenClaims claims) {
+		tokenBlacklistStore.add(claims.tokenId(), claims.expiresAt());
+	}
+
+	@Transactional
+	public void withdraw(long userId, TokenClaims claims) {
+		User user = userRepository.findById(userId)
+			.orElseThrow(() -> new ApplicationException(ErrorCode.USER_NOT_FOUND));
+		user.withdraw();
+		tokenBlacklistStore.add(claims.tokenId(), claims.expiresAt());
+	}
+
+	private void validateCredentials(String username, String password) {
+		if (username == null || !username.matches("[A-Za-z0-9_]{4,50}")) {
+			throw new ApplicationException(
+				ErrorCode.INVALID_REQUEST,
+				"username은 영문, 숫자, 밑줄을 사용하여 4자 이상 50자 이하로 입력해야 합니다."
+			);
+		}
+
+		if (password == null || !password.matches("[!-~]{8,64}")) {
+			throw new ApplicationException(
+				ErrorCode.INVALID_REQUEST,
+				"password는 공백 없이 영문, 숫자, 일반 특수문자로 8자 이상 64자 이하로 입력해야 합니다."
+			);
+		}
+	}
+}
