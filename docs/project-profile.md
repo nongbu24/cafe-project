@@ -114,10 +114,11 @@
 
 ## 외부 환경
 
-- 환경 변수 이름: 현재 명시된 항목 없음. 운영 PostgreSQL 연결 설정을 추가할 때 실제 이름 기록
-- 로컬 실행 전제: JDK 21, H2 사용
+- 환경 변수 이름: JWT 서명 키 `JWT_SECRET`, Redis 연결용 `REDIS_HOST`, `REDIS_PORT`,
+  `REDIS_PASSWORD`. 운영 PostgreSQL 연결 설정을 추가할 때 실제 이름 기록
+- 로컬 실행 전제: JDK 21, H2와 Redis 사용
 - 최초 빌드 전제: Gradle 배포 파일과 Maven 의존성을 내려받을 네트워크 연결
-- 외부 서비스: 운영 환경 PostgreSQL 예정. 실제 연결 위치와 제공 방식은 미정
+- 외부 서비스: JWT 블랙리스트용 Redis, 운영 환경 PostgreSQL 예정. 실제 운영 연결 위치와 제공 방식은 미정
 - 배포·운영 환경: 미정
 - 비용 발생 가능 작업: 미정
 

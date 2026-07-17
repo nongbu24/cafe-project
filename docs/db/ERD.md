@@ -81,6 +81,9 @@ erDiagram
 
 `FK_NULL`은 nullable 외래 키, `FK_UK`는 외래 키이면서 유일 키임을 의미한다.
 
+JWT 블랙리스트는 관계형 DB 테이블이 아니므로 ERD에 포함하지 않는다.
+로그아웃·회원탈퇴 토큰의 `jti`는 Redis의 `auth:blacklist:{jti}` 키로 저장하고 JWT의 남은 유효시간을 TTL로 사용한다.
+
 ## 3. 테이블 정의
 
 ### 3.1 `users`
