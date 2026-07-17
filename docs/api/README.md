@@ -59,8 +59,7 @@
 ```json
 {
   "code": "USER_NOT_FOUND",
-  "message": "사용자를 찾을 수 없습니다.",
-  "data": null
+  "message": "사용자를 찾을 수 없습니다."
 }
 ```
 
@@ -68,14 +67,14 @@
 |---|---|---|---|
 | `code` | string | O | 클라이언트가 분기 처리할 수 있는 오류 코드 |
 | `message` | string | O | 사용자가 이해할 수 있는 오류 설명 |
-| `data` | null | O | 오류 응답에서는 `null` |
+
+오류 응답에는 `data` 필드를 포함하지 않는다.
 
 요청 값 검증에 실패하면 `INVALID_REQUEST` 코드와 구체적인 실패 이유를 반환한다.
 
 ```json
 {
   "code": "INVALID_REQUEST",
-  "message": "요청 값이 올바르지 않습니다.",
-  "data": null
+  "message": "요청 값이 올바르지 않습니다."
 }
 ```

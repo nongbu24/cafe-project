@@ -1,6 +1,6 @@
 package com.example.cafe.common.exception;
 
-import com.example.cafe.common.response.ApiResponse;
+import com.example.cafe.common.response.ErrorResponse;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -11,27 +11,27 @@ import org.springframework.web.method.annotation.MethodArgumentTypeMismatchExcep
 public class GlobalExceptionHandler {
 
 	@ExceptionHandler(ApplicationException.class)
-	public ResponseEntity<ApiResponse<Void>> handleApplicationException(
+	public ResponseEntity<ErrorResponse> handleApplicationException(
 		ApplicationException exception
 	) {
 		ErrorCode errorCode = exception.getErrorCode();
 
 		return ResponseEntity.status(errorCode.getStatus())
-			.body(ApiResponse.error(errorCode.getCode(), exception.getMessage()));
+			.body(ErrorResponse.of(errorCode.getCode(), exception.getMessage()));
 	}
 
 	@ExceptionHandler(MethodArgumentTypeMismatchException.class)
-	public ResponseEntity<ApiResponse<Void>> handleTypeMismatch() {
+	public ResponseEntity<ErrorResponse> handleTypeMismatch() {
 		return errorResponse(ErrorCode.INVALID_REQUEST);
 	}
 
 	@ExceptionHandler(HttpMessageNotReadableException.class)
-	public ResponseEntity<ApiResponse<Void>> handleUnreadableMessage() {
+	public ResponseEntity<ErrorResponse> handleUnreadableMessage() {
 		return errorResponse(ErrorCode.INVALID_REQUEST);
 	}
 
-	private ResponseEntity<ApiResponse<Void>> errorResponse(ErrorCode errorCode) {
+	private ResponseEntity<ErrorResponse> errorResponse(ErrorCode errorCode) {
 		return ResponseEntity.status(errorCode.getStatus())
-			.body(ApiResponse.error(errorCode.getCode(), errorCode.getMessage()));
+			.body(ErrorResponse.of(errorCode.getCode(), errorCode.getMessage()));
 	}
 }

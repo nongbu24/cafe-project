@@ -84,7 +84,7 @@ class PointControllerTest {
 			.andExpect(status().isBadRequest())
 			.andExpect(jsonPath("$.code").value("INVALID_REQUEST"))
 			.andExpect(jsonPath("$.message").value("amount는 1 이상이어야 합니다."))
-			.andExpect(jsonPath("$.data").isEmpty());
+			.andExpect(jsonPath("$.data").doesNotExist());
 
 		assertThat(findPointBalance()).isEqualTo(3500);
 		assertThat(countChargeTransactions()).isZero();
@@ -102,7 +102,7 @@ class PointControllerTest {
 			.andExpect(status().isBadRequest())
 			.andExpect(jsonPath("$.code").value("INVALID_REQUEST"))
 			.andExpect(jsonPath("$.message").value("userId는 1 이상이어야 합니다."))
-			.andExpect(jsonPath("$.data").isEmpty());
+			.andExpect(jsonPath("$.data").doesNotExist());
 	}
 
 	@Test
@@ -117,7 +117,7 @@ class PointControllerTest {
 			.andExpect(status().isNotFound())
 			.andExpect(jsonPath("$.code").value("USER_NOT_FOUND"))
 			.andExpect(jsonPath("$.message").value("사용자를 찾을 수 없습니다."))
-			.andExpect(jsonPath("$.data").isEmpty());
+			.andExpect(jsonPath("$.data").doesNotExist());
 	}
 
 	@Test
@@ -132,7 +132,7 @@ class PointControllerTest {
 			.andExpect(status().isBadRequest())
 			.andExpect(jsonPath("$.code").value("INVALID_REQUEST"))
 			.andExpect(jsonPath("$.message").value("요청 값이 올바르지 않습니다."))
-			.andExpect(jsonPath("$.data").isEmpty());
+			.andExpect(jsonPath("$.data").doesNotExist());
 	}
 
 	private void charge(long amount) throws Exception {

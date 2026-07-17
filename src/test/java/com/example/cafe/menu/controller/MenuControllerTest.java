@@ -73,7 +73,7 @@ class MenuControllerTest {
 			.andExpect(status().isBadRequest())
 			.andExpect(jsonPath("$.code").value("INVALID_REQUEST"))
 			.andExpect(jsonPath("$.message").value("size는 1 이상 100 이하여야 합니다."))
-			.andExpect(jsonPath("$.data").isEmpty());
+			.andExpect(jsonPath("$.data").doesNotExist());
 	}
 
 	@Test
@@ -89,7 +89,7 @@ class MenuControllerTest {
 			.andExpect(status().isBadRequest())
 			.andExpect(jsonPath("$.code").value("INVALID_REQUEST"))
 			.andExpect(jsonPath("$.message").value("page는 0 이상이어야 합니다."))
-			.andExpect(jsonPath("$.data").isEmpty());
+			.andExpect(jsonPath("$.data").doesNotExist());
 	}
 
 	@Test
@@ -98,7 +98,7 @@ class MenuControllerTest {
 			.andExpect(status().isBadRequest())
 			.andExpect(jsonPath("$.code").value("INVALID_REQUEST"))
 			.andExpect(jsonPath("$.message").value("요청 값이 올바르지 않습니다."))
-			.andExpect(jsonPath("$.data").isEmpty());
+			.andExpect(jsonPath("$.data").doesNotExist());
 	}
 
 	@Test
