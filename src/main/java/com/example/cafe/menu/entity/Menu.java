@@ -1,4 +1,4 @@
-package com.example.cafe.menu;
+package com.example.cafe.menu.entity;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;

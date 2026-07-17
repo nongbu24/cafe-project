@@ -1,4 +1,4 @@
-package com.example.cafe.menu;
+package com.example.cafe.menu.entity;
 
 public enum MenuStatus {
 	AVAILABLE("판매중"),

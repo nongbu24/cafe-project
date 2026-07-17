@@ -1,4 +1,4 @@
-package com.example.cafe.menu;
+package com.example.cafe.menu.controller;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.hasSize;

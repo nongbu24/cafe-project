@@ -1,6 +1,9 @@
-package com.example.cafe.menu;
+package com.example.cafe.menu.service;
 
 import com.example.cafe.common.response.PageResponse;
+import com.example.cafe.menu.dto.MenuResponse;
+import com.example.cafe.menu.entity.MenuStatus;
+import com.example.cafe.menu.repository.MenuRepository;
 import java.util.EnumSet;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
