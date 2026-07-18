@@ -9,6 +9,7 @@ import com.example.cafe.common.exception.ApplicationException;
 import com.example.cafe.common.exception.ErrorCode;
 import com.example.cafe.user.entity.User;
 import com.example.cafe.user.facade.UserFacade;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -46,7 +47,11 @@ public class AuthService {
 
 		User user = User.signup(request.username(), passwordEncoder.encode(request.password()));
 
-		return UserResponse.from(userFacade.save(user));
+		try {
+			return UserResponse.from(userFacade.save(user));
+		} catch (DataIntegrityViolationException exception) {
+			throw new ApplicationException(ErrorCode.DUPLICATE_USERNAME);
+		}
 	}
 
 	@Transactional(readOnly = true)
