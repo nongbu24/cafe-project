@@ -20,6 +20,7 @@ class SeedUserDataTest {
 		assertThat(countByStatus("ADMIN")).isEqualTo(3);
 		assertThat(countByStatus("USER")).isEqualTo(7);
 		assertThat(countAll()).isEqualTo(10);
+		assertThat(countUnchangedUsers()).isEqualTo(10);
 	}
 
 	private Long countByStatus(String status) {
@@ -32,5 +33,12 @@ class SeedUserDataTest {
 
 	private Long countAll() {
 		return jdbcTemplate.queryForObject("SELECT COUNT(*) FROM users", Long.class);
+	}
+
+	private Long countUnchangedUsers() {
+		return jdbcTemplate.queryForObject(
+			"SELECT COUNT(*) FROM users WHERE updated_at IS NULL",
+			Long.class
+		);
 	}
 }

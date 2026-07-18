@@ -58,6 +58,12 @@ class AuthControllerTest {
 			String.class
 		);
 		assertThat(storedPassword).startsWith("$2").isNotEqualTo("Cafe1234!");
+
+		Long unchangedUsers = jdbcTemplate.queryForObject(
+			"SELECT COUNT(*) FROM users WHERE username = 'new_user' AND updated_at IS NULL",
+			Long.class
+		);
+		assertThat(unchangedUsers).isEqualTo(1);
 	}
 
 	@Test

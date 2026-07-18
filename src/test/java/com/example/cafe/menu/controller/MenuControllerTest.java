@@ -182,7 +182,7 @@ class MenuControllerTest {
 			"""
 			MERGE INTO users (id, username, password, user_status, point_balance, is_deleted, created_at, updated_at)
 			KEY(id)
-			VALUES (4, 'popular_menu_user', 'encoded', 'USER', 0, FALSE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+			VALUES (4, 'popular_menu_user', 'encoded', 'USER', 0, FALSE, CURRENT_TIMESTAMP, NULL)
 			"""
 		);
 	}

@@ -2,6 +2,7 @@
 
 이 문서는 카페 서비스 DB 구조의 SSOT(Single Source of Truth)다.
 실제 Entity, DDL 또는 마이그레이션을 추가할 때 이 문서와 함께 갱신한다.
+DB가 직접 보장하는 테이블, 기본값, CHECK, FK와 인덱스는 Flyway 마이그레이션으로 관리한다.
 
 ## 1. 설계 범위
 
@@ -33,7 +34,7 @@ erDiagram
         BIGINT point_balance
         BOOLEAN is_deleted
         TIMESTAMP created_at
-        TIMESTAMP updated_at
+        TIMESTAMP updated_at "NULL until modified"
     }
 
     MENUS {
@@ -48,7 +49,7 @@ erDiagram
     POINT_TRANSACTION {
         BIGINT id PK
         BIGINT user_id FK
-        BIGINT order_id FK_NULL
+        BIGINT order_id UK_NULL
         VARCHAR type
         BIGINT amount
         BIGINT balance_after
@@ -79,7 +80,7 @@ erDiagram
     }
 ```
 
-`FK_NULL`은 nullable 외래 키, `FK_UK`는 외래 키이면서 유일 키임을 의미한다.
+`UK_NULL`은 nullable 유일 키, `FK_UK`는 외래 키이면서 유일 키임을 의미한다.
 
 JWT 블랙리스트는 관계형 DB 테이블이 아니므로 ERD에 포함하지 않는다.
 로그아웃·회원탈퇴 토큰의 `jti`는 Redis의 `auth:blacklist:{jti}` 키로 저장하고 JWT의 남은 유효시간을 TTL로 사용한다.
@@ -99,7 +100,7 @@ JWT 블랙리스트는 관계형 DB 테이블이 아니므로 ERD에 포함하�
 | `point_balance` | `BIGINT` | NOT NULL, 기본값 0, 0 이상 | 현재 사용 가능한 포인트 |
 | `is_deleted` | `BOOLEAN` | NOT NULL, 기본값 `false` | 회원탈퇴 여부 |
 | `created_at` | `TIMESTAMP` | NOT NULL | 생성 시각 |
-| `updated_at` | `TIMESTAMP` | NOT NULL | 마지막 수정 시각 |
+| `updated_at` | `TIMESTAMP` | NULL | 마지막 수정 시각. 생성 이후 수정되지 않았으면 `NULL` |
 
 포인트 잔액 갱신은 동시 요청에서 금액이 유실되지 않도록 회원 행을 비관적 쓰기 잠금으로 조회한 뒤 처리한다.
 회원탈퇴는 행을 삭제하지 않고 `is_deleted`를 `true`로 변경하며 탈퇴 회원의 로그인과 인증을 거부한다.
@@ -128,7 +129,7 @@ JWT 블랙리스트는 관계형 DB 테이블이 아니므로 ERD에 포함하�
 |---|---|---|---|
 | `id` | `BIGINT` | PK, 자동 증가 | 포인트 거래 식별값 |
 | `user_id` | `BIGINT` | NOT NULL, FK → `users.id` | 거래 회원 |
-| `order_id` | `BIGINT` | NULL, FK → `orders.id`, UNIQUE | 사용 거래와 연결된 주문 |
+| `order_id` | `BIGINT` | NULL, UNIQUE | 사용 거래와 연결된 주문 식별값. 단순 참조값이며 DB FK는 두지 않음 |
 | `type` | `VARCHAR(20)` | NOT NULL | `CHARGE` 또는 `PAYMENT` |
 | `amount` | `BIGINT` | NOT NULL, 1 이상 | 충전하거나 사용한 포인트의 절댓값 |
 | `balance_after` | `BIGINT` | NOT NULL, 0 이상 | 거래 완료 직후 잔액 |
@@ -164,7 +165,7 @@ JWT 블랙리스트는 관계형 DB 테이블이 아니므로 ERD에 포함하�
 | `id` | `BIGINT` | PK, 자동 증가 | 이벤트 식별값 |
 | `order_id` | `BIGINT` | NOT NULL, UNIQUE, FK → `orders.id` | 전송 대상 주문 |
 | `event_type` | `VARCHAR(50)` | NOT NULL | `ORDER_PAID` |
-| `payload` | `TEXT` | NOT NULL | 사용자 식별값, 메뉴 ID, 결제금액을 담은 JSON |
+| `payload` | `TEXT` | NOT NULL | 외부 전송 원본 JSON. `eventId`, `eventType`, `occurredAt`, `userId`, `menuId`, `paymentAmount` 포함 |
 | `status` | `VARCHAR(20)` | NOT NULL | `PENDING`, `SENDING`, `SENT`, `FAILED` |
 | `retry_count` | `INT` | NOT NULL, 기본값 0, 0 이상 | 전송 재시도 횟수 |
 | `next_retry_at` | `TIMESTAMP` | NULL | 다음 재시도 예정 시각 |
@@ -192,4 +193,5 @@ JWT 블랙리스트는 관계형 DB 테이블이 아니므로 ERD에 포함하�
 - 메뉴별 주문 횟수 내림차순, 주문 횟수가 같으면 메뉴 ID 오름차순으로 정렬하여 3개를 반환한다.
 - 집계 대상 주문이 3개 메뉴보다 적으면 존재하는 메뉴만 반환한다.
 
-DB에는 시각을 UTC로 저장하고, API 응답은 ISO 8601 형식으로 시간대 정보를 포함한다.
+DB에는 timezone 없는 `TIMESTAMP` 컬럼에 UTC 기준 `LocalDateTime`을 저장한다.
+API 응답은 저장된 UTC 시각을 한국 시간대로 변환하여 ISO 8601 형식과 offset을 함께 반환한다.

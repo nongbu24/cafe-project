@@ -3,6 +3,7 @@ package com.example.cafe.common.util;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
+import java.time.ZoneOffset;
 
 public final class DateTimeUtils {
 
@@ -12,6 +13,12 @@ public final class DateTimeUtils {
 	}
 
 	public static OffsetDateTime toKoreaOffsetDateTime(LocalDateTime dateTime) {
-		return dateTime.atZone(KOREA_ZONE).toOffsetDateTime();
+		return dateTime.atOffset(ZoneOffset.UTC)
+			.atZoneSameInstant(KOREA_ZONE)
+			.toOffsetDateTime();
+	}
+
+	public static LocalDateTime utcNow() {
+		return LocalDateTime.now(ZoneOffset.UTC);
 	}
 }

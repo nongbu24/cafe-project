@@ -1,5 +1,6 @@
 package com.example.cafe.common.entity;
 
+import com.example.cafe.common.util.DateTimeUtils;
 import jakarta.persistence.Column;
 import jakarta.persistence.MappedSuperclass;
 import jakarta.persistence.PrePersist;
@@ -12,19 +13,17 @@ public abstract class BaseEntity {
 	@Column(nullable = false, updatable = false)
 	private LocalDateTime createdAt;
 
-	@Column(nullable = false)
+	@Column
 	private LocalDateTime updatedAt;
 
 	@PrePersist
 	protected void onCreate() {
-		LocalDateTime now = LocalDateTime.now();
-		createdAt = now;
-		updatedAt = now;
+		createdAt = DateTimeUtils.utcNow();
 	}
 
 	@PreUpdate
 	protected void onUpdate() {
-		updatedAt = LocalDateTime.now();
+		updatedAt = DateTimeUtils.utcNow();
 	}
 
 	public LocalDateTime getCreatedAt() {

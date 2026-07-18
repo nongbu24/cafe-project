@@ -1,5 +1,6 @@
 package com.example.cafe.menu.entity;
 
+import com.example.cafe.common.entity.BaseEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -7,14 +8,11 @@ import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
-import jakarta.persistence.PrePersist;
-import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
-import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "menus")
-public class Menu {
+public class Menu extends BaseEntity {
 
 	@Id
 	@GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -30,22 +28,7 @@ public class Menu {
 	@Column(nullable = false, length = 20)
 	private MenuStatus status;
 
-	@Column(nullable = false, updatable = false)
-	private LocalDateTime createdAt;
-
-	private LocalDateTime updatedAt;
-
 	protected Menu() {
-	}
-
-	@PrePersist
-	void onCreate() {
-		createdAt = LocalDateTime.now();
-	}
-
-	@PreUpdate
-	void onUpdate() {
-		updatedAt = LocalDateTime.now();
 	}
 
 	public Long getId() {

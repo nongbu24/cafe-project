@@ -10,12 +10,12 @@
 - 이름: cafe
 - 목적: 관리자와 회원이 사용하는 카페 서비스의 백엔드 기능 제공
 - 주요 사용자: 관리자, 회원
-- 현재 상태: Spring Boot 초기 개발 단계. 애플리케이션 진입점과 컨텍스트 로딩 테스트만 존재
+- 현재 상태: 인증, 메뉴, 포인트, 주문 주요 도메인 REST API와 관련 통합 테스트가 존재하는 초기 개발 단계
 
 ## 기술과 구조
 
 - 언어: Java 21
-- 런타임·프레임워크: Spring Boot 4.1.0, Spring MVC, Spring Data JPA, QueryDSL, WebSocket
+- 런타임·프레임워크: Spring Boot 4.1.0, Spring MVC, Spring Data JPA, QueryDSL, Flyway, WebSocket
 - 패키지·빌드 도구: Gradle Wrapper 9.5.1, Groovy DSL
 - 데이터 저장소: 개발 환경 H2, 운영 환경 PostgreSQL
 - 테스트 도구: JUnit Jupiter, Spring Boot Test, Spring Data JPA Test, Spring MVC Test,
@@ -28,6 +28,7 @@
 | `gradle/wrapper/gradle-wrapper.properties` | Gradle Wrapper 버전 |
 | `src/main/java/com/example/cafe/` | 애플리케이션 Java 코드 |
 | `src/main/resources/application.properties` | 애플리케이션 설정 |
+| `src/main/resources/db/migration/` | Flyway DB 마이그레이션 |
 | `src/test/java/com/example/cafe/` | 자동 테스트 |
 | `AGENTS.md` | 공통 작업 규칙과 작업 경로 |
 | `docs/project-profile.md` | 실제 실행 명령, 프로젝트 규칙과 추가 위험 |
@@ -88,8 +89,8 @@
   단순 조건 조회는 메서드 이름 기반 쿼리를 우선 사용하고, 복잡한 조회·집계·락처럼 직접 쿼리 표현이 필요한 경우
   도메인 `repository` 패키지의 커스텀 Repository 구현에서 QueryDSL로 작성한다.
 - 코드 스타일: 별도 포매터와 린터는 사용하지 않는다. 레퍼런스 프로젝트의 구조와 작성 방식을 참고하되, 본 프로젝트 안에서 패키지·네이밍·포맷이 일관되도록 작성한다.
-- 생성 시각과 수정 시각을 공통 NOT NULL 정책으로 관리하는 엔티티는 `BaseEntity`를 상속하여 `createdAt`과 `updatedAt`을 관리한다.
-  도메인 정책상 수정 시각이 nullable인 엔티티는 예외로 둔다.
+- 생성 시각과 수정 시각을 함께 관리하는 엔티티는 `BaseEntity`를 상속하여 `createdAt`과 `updatedAt`을 관리한다.
+  `updatedAt`은 모든 도메인에서 실제 수정 전까지 `NULL`로 유지하고, 수정 시점에만 값을 기록한다.
 - 회원탈퇴는 회원 행을 물리적으로 삭제하지 않고 `users.is_deleted`를 `true`로 변경하는 소프트 삭제 정책을 사용한다.
   탈퇴 회원은 로그인과 인증이 필요한 기능을 사용할 수 없다.
 - 문서 스타일: 프로젝트 문서는 한국어로 작성하고 코드 식별자와 명령은 원문을 유지한다.

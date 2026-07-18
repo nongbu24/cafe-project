@@ -47,7 +47,7 @@ class OrderControllerTest {
 		jdbcTemplate.update(
 			"""
 			INSERT INTO users (id, username, password, user_status, point_balance, is_deleted, created_at, updated_at)
-			VALUES (?, 'order_test', 'encoded', 'USER', ?, FALSE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+			VALUES (?, 'order_test', 'encoded', 'USER', ?, FALSE, CURRENT_TIMESTAMP, NULL)
 			""",
 			USER_ID,
 			12000
@@ -89,9 +89,18 @@ class OrderControllerTest {
 		assertThat(countPaymentTransactions()).isEqualTo(1);
 		assertThat(findPaymentTransactionAmount()).isEqualTo(5000);
 		assertThat(findOutboxStatus()).isEqualTo("SENT");
+		assertThat(findOutboxPayload())
+			.contains("\"eventId\":1")
+			.contains("\"eventType\":\"ORDER_PAID\"")
+			.contains("\"occurredAt\"")
+			.contains("\"userId\":1")
+			.contains("\"menuId\":10")
+			.contains("\"paymentAmount\":5000");
 
 		verify(dataCollector, timeout(1000)).send(argThat(payload ->
-			payload.userId() == USER_ID
+			payload.eventId() == 1
+				&& payload.occurredAt() != null
+				&& payload.userId() == USER_ID
 				&& payload.menuId() == MENU_ID
 				&& payload.paymentAmount() == 5000
 				&& "ORDER_PAID".equals(payload.eventType())
@@ -221,6 +230,13 @@ class OrderControllerTest {
 	private String findOutboxStatus() {
 		return jdbcTemplate.queryForObject(
 			"SELECT status FROM order_event_outbox",
+			String.class
+		);
+	}
+
+	private String findOutboxPayload() {
+		return jdbcTemplate.queryForObject(
+			"SELECT payload FROM order_event_outbox",
 			String.class
 		);
 	}

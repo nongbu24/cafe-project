@@ -51,7 +51,7 @@ public class OrderService {
 		User user = userFacade.getUserForUpdate(userId);
 		Menu menu = menuFacade.getMenu(menuId);
 
-		LocalDateTime paidAt = LocalDateTime.now();
+		LocalDateTime paidAt = DateTimeUtils.utcNow();
 		user.usePoint(menu.getPrice());
 
 		Order order = orderRepository.save(Order.paid(user, menu, paidAt));
@@ -63,10 +63,8 @@ public class OrderService {
 			paidAt
 		);
 
-		OrderEventOutbox event = orderEventOutboxRepository.save(OrderEventOutbox.orderPaid(
-			order,
-			orderPaidPayload(order, user, menu)
-		));
+		OrderEventOutbox event = orderEventOutboxRepository.saveAndFlush(OrderEventOutbox.orderPaid(order));
+		event.updatePayload(orderPaidPayload(event, order, user, menu));
 		applicationEventPublisher.publishEvent(event);
 
 		return new OrderResponse(
@@ -90,9 +88,15 @@ public class OrderService {
 		}
 	}
 
-	private String orderPaidPayload(Order order, User user, Menu menu) {
+	private String orderPaidPayload(OrderEventOutbox event, Order order, User user, Menu menu) {
 		return """
-			{"eventType":"ORDER_PAID","userId":%d,"menuId":%d,"paymentAmount":%d}
-			""".formatted(user.getId(), menu.getId(), order.getPaymentAmount()).trim();
+			{"eventId":%d,"eventType":"ORDER_PAID","occurredAt":"%s","userId":%d,"menuId":%d,"paymentAmount":%d}
+			""".formatted(
+			event.getId(),
+			DateTimeUtils.toKoreaOffsetDateTime(order.getPaidAt()),
+			user.getId(),
+			menu.getId(),
+			order.getPaymentAmount()
+		).trim();
 	}
 }

@@ -33,7 +33,7 @@ class PointControllerTest {
 		jdbcTemplate.update(
 			"""
 			INSERT INTO users (id, username, password, user_status, point_balance, is_deleted, created_at, updated_at)
-			VALUES (?, 'point_test', 'encoded', 'USER', ?, FALSE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+			VALUES (?, 'point_test', 'encoded', 'USER', ?, FALSE, CURRENT_TIMESTAMP, NULL)
 			""",
 			USER_ID,
 			3500

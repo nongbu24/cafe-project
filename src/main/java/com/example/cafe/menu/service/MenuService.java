@@ -47,7 +47,7 @@ public class MenuService {
 
 	@Transactional(readOnly = true)
 	public PopularMenuResponse getPopularMenus() {
-		LocalDateTime to = LocalDateTime.now();
+		LocalDateTime to = DateTimeUtils.utcNow();
 		LocalDateTime from = to.minusDays(POPULAR_MENU_PERIOD_DAYS);
 		List<PopularMenuOrderCount> orderCounts = orderFacade.findPopularMenus(
 			OrderStatus.PAID,

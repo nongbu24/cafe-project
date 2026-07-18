@@ -1,5 +1,6 @@
 package com.example.cafe.order.entity;
 
+import com.example.cafe.common.util.DateTimeUtils;
 import com.example.cafe.menu.entity.Menu;
 import com.example.cafe.user.entity.User;
 import jakarta.persistence.Column;
@@ -66,7 +67,7 @@ public class Order {
 
 	@PrePersist
 	void onCreate() {
-		createdAt = LocalDateTime.now();
+		createdAt = DateTimeUtils.utcNow();
 	}
 
 	public Long getId() {

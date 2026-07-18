@@ -1,11 +1,12 @@
 package com.example.cafe.point.service;
 
 import com.example.cafe.common.exception.ApplicationException;
+import com.example.cafe.common.util.DateTimeUtils;
 import com.example.cafe.point.dto.PointChargeResponse;
 import com.example.cafe.point.facade.PointFacade;
 import com.example.cafe.user.entity.User;
 import com.example.cafe.user.facade.UserFacade;
-import java.time.OffsetDateTime;
+import java.time.LocalDateTime;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -30,19 +31,19 @@ public class PointService {
 		User user = userFacade.getUserForUpdate(userId);
 
 		user.charge(amount);
-		OffsetDateTime chargedAt = OffsetDateTime.now();
+		LocalDateTime chargedAt = DateTimeUtils.utcNow();
 		pointFacade.saveChargeTransaction(
 			user,
 			amount,
 			user.getPointBalance(),
-			chargedAt.toLocalDateTime()
+			chargedAt
 		);
 
 		return new PointChargeResponse(
 			user.getId(),
 			amount,
 			user.getPointBalance(),
-			chargedAt
+			DateTimeUtils.toKoreaOffsetDateTime(chargedAt)
 		);
 	}
 

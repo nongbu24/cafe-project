@@ -1,5 +1,6 @@
 package com.example.cafe.order.entity;
 
+import com.example.cafe.common.util.DateTimeUtils;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -55,15 +56,20 @@ public class OrderEventOutbox {
 		this.eventType = OrderEventType.ORDER_PAID;
 		this.payload = payload;
 		this.status = OrderEventStatus.PENDING;
+		this.retryCount = 0;
 	}
 
-	public static OrderEventOutbox orderPaid(Order order, String payload) {
-		return new OrderEventOutbox(order, payload);
+	public static OrderEventOutbox orderPaid(Order order) {
+		return new OrderEventOutbox(order, "{}");
+	}
+
+	public void updatePayload(String payload) {
+		this.payload = payload;
 	}
 
 	@PrePersist
 	void onCreate() {
-		createdAt = LocalDateTime.now();
+		createdAt = DateTimeUtils.utcNow();
 	}
 
 	public void markSent(LocalDateTime sentAt) {
