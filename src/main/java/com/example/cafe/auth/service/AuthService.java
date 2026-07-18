@@ -74,7 +74,7 @@ public class AuthService {
 
 	@Transactional
 	public void withdraw(long userId, TokenClaims claims) {
-		User user = userFacade.getUser(userId);
+		User user = userFacade.getUserForUpdate(userId);
 		user.withdraw();
 		tokenBlacklistStore.add(claims.tokenId(), claims.expiresAt());
 	}
