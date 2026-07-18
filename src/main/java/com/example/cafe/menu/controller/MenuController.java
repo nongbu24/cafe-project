@@ -5,6 +5,7 @@ import com.example.cafe.common.exception.ErrorCode;
 import com.example.cafe.common.response.ApiResponse;
 import com.example.cafe.common.response.PageResponse;
 import com.example.cafe.menu.dto.MenuResponse;
+import com.example.cafe.menu.dto.PopularMenuResponse;
 import com.example.cafe.menu.service.MenuService;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -29,6 +30,11 @@ public class MenuController {
 		validatePagination(page, size);
 
 		return ApiResponse.success(menuService.getMenus(page, size));
+	}
+
+	@GetMapping("/popular")
+	public ApiResponse<PopularMenuResponse> getPopularMenus() {
+		return ApiResponse.success(menuService.getPopularMenus());
 	}
 
 	private void validatePagination(int page, int size) {

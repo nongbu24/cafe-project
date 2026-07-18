@@ -6,6 +6,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -22,6 +23,41 @@ class MenuControllerTest {
 
 	@Autowired
 	private JdbcTemplate jdbcTemplate;
+
+	@AfterEach
+	void tearDown() {
+		jdbcTemplate.update("DELETE FROM orders");
+	}
+
+	@Test
+	void 최근_7일간_인기_메뉴_3개를_주문_횟수순으로_조회한다() throws Exception {
+		jdbcTemplate.update("DELETE FROM orders");
+		prepareOrderUser();
+		insertPaidOrders(2, 4, 1);
+		insertPaidOrders(1, 3, 1);
+		insertPaidOrders(3, 3, 1);
+		insertPaidOrders(4, 2, 1);
+		insertPaidOrders(5, 10, 8);
+
+		mockMvc.perform(get("/api/v1/menus/popular"))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.code").value("SUCCESS"))
+			.andExpect(jsonPath("$.message").value("요청이 성공적으로 처리되었습니다."))
+			.andExpect(jsonPath("$.data.from").isNotEmpty())
+			.andExpect(jsonPath("$.data.to").isNotEmpty())
+			.andExpect(jsonPath("$.data.menus", hasSize(3)))
+			.andExpect(jsonPath("$.data.menus[0].rank").value(1))
+			.andExpect(jsonPath("$.data.menus[0].menuId").value(2))
+			.andExpect(jsonPath("$.data.menus[0].name").value("아이스 아메리카노"))
+			.andExpect(jsonPath("$.data.menus[0].price").value(4500))
+			.andExpect(jsonPath("$.data.menus[0].orderCount").value(4))
+			.andExpect(jsonPath("$.data.menus[1].rank").value(2))
+			.andExpect(jsonPath("$.data.menus[1].menuId").value(1))
+			.andExpect(jsonPath("$.data.menus[1].orderCount").value(3))
+			.andExpect(jsonPath("$.data.menus[2].rank").value(3))
+			.andExpect(jsonPath("$.data.menus[2].menuId").value(3))
+			.andExpect(jsonPath("$.data.menus[2].orderCount").value(3));
+	}
 
 	@Test
 	void 기본값으로_첫_페이지의_메뉴_10개를_조회한다() throws Exception {
@@ -123,6 +159,31 @@ class MenuControllerTest {
 			"SELECT COUNT(*) FROM menus WHERE status = ?",
 			Long.class,
 			status
+		);
+	}
+
+	private void insertPaidOrders(long menuId, int count, int daysAgo) {
+		for (int i = 0; i < count; i++) {
+			jdbcTemplate.update(
+				"""
+				INSERT INTO orders (user_id, menu_id, menu_name, payment_amount, status, paid_at, created_at)
+				SELECT 4, id, name, price, 'PAID', DATEADD('DAY', ?, CURRENT_TIMESTAMP), CURRENT_TIMESTAMP
+				FROM menus
+				WHERE id = ?
+				""",
+				-daysAgo,
+				menuId
+			);
+		}
+	}
+
+	private void prepareOrderUser() {
+		jdbcTemplate.update(
+			"""
+			MERGE INTO users (id, username, password, user_status, point_balance, is_deleted, created_at, updated_at)
+			KEY(id)
+			VALUES (4, 'popular_menu_user', 'encoded', 'USER', 0, FALSE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+			"""
 		);
 	}
 }
