@@ -77,13 +77,14 @@ Location: /api/v1/orders/1001
 | `400 Bad Request` | `INVALID_REQUEST` | 사용자 또는 메뉴 식별값이 형식·범위를 벗어남 |
 | `404 Not Found` | `USER_NOT_FOUND` | 사용자가 존재하지 않음 |
 | `404 Not Found` | `MENU_NOT_FOUND` | 메뉴가 존재하지 않음 |
+| `409 Conflict` | `MENU_NOT_AVAILABLE` | 메뉴가 품절 또는 단종 상태라 주문할 수 없음 |
 | `409 Conflict` | `INSUFFICIENT_POINTS` | 사용자의 포인트가 메뉴 가격보다 적음 |
 
 ### 트랜잭션과 동시성
 
 다음 처리는 하나의 DB 트랜잭션으로 실행한다.
 
-1. 회원과 메뉴를 조회한다.
+1. 회원과 주문 가능한 메뉴를 조회한다. 메뉴 상태가 `AVAILABLE`이 아니면 주문하지 않는다.
 2. 회원의 현재 포인트가 메뉴 가격 이상인지 확인한다.
 3. 포인트에서 메뉴 가격을 차감한다.
 4. `PAID` 주문과 `PAYMENT` 포인트 거래를 저장한다.

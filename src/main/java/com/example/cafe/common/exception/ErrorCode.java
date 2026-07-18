@@ -13,6 +13,7 @@ public enum ErrorCode {
 
 	// 메뉴
 	MENU_NOT_FOUND(HttpStatus.NOT_FOUND, "MENU_NOT_FOUND", "메뉴를 찾을 수 없습니다."),
+	MENU_NOT_AVAILABLE(HttpStatus.CONFLICT, "MENU_NOT_AVAILABLE", "주문할 수 없는 메뉴입니다."),
 
 	// 주문
 	INSUFFICIENT_POINTS(HttpStatus.CONFLICT, "INSUFFICIENT_POINTS", "포인트 잔액이 부족합니다."),

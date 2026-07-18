@@ -131,6 +131,51 @@ class OrderControllerTest {
 	}
 
 	@Test
+	void 품절_메뉴는_주문할_수_없다() throws Exception {
+		jdbcTemplate.update("UPDATE menus SET status = 'SOLD_OUT' WHERE id = ?", MENU_ID);
+
+		mockMvc.perform(post("/api/v1/orders")
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("""
+					{
+					  "userId": %d,
+					  "menuId": %d
+					}
+					""".formatted(USER_ID, MENU_ID)))
+			.andExpect(status().isConflict())
+			.andExpect(jsonPath("$.code").value("MENU_NOT_AVAILABLE"))
+			.andExpect(jsonPath("$.message").value("주문할 수 없는 메뉴입니다."))
+			.andExpect(jsonPath("$.data").doesNotExist());
+
+		assertThat(findPointBalance()).isEqualTo(12000);
+		assertThat(countOrders()).isZero();
+		assertThat(countPaymentTransactions()).isZero();
+		verifyNoInteractions(dataCollector);
+	}
+
+	@Test
+	void 단종_메뉴는_주문할_수_없다() throws Exception {
+		jdbcTemplate.update("UPDATE menus SET status = 'DISCONTINUED' WHERE id = ?", MENU_ID);
+
+		mockMvc.perform(post("/api/v1/orders")
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("""
+					{
+					  "userId": %d,
+					  "menuId": %d
+					}
+					""".formatted(USER_ID, MENU_ID)))
+			.andExpect(status().isConflict())
+			.andExpect(jsonPath("$.code").value("MENU_NOT_AVAILABLE"))
+			.andExpect(jsonPath("$.data").doesNotExist());
+
+		assertThat(findPointBalance()).isEqualTo(12000);
+		assertThat(countOrders()).isZero();
+		assertThat(countPaymentTransactions()).isZero();
+		verifyNoInteractions(dataCollector);
+	}
+
+	@Test
 	void 사용자가_존재하지_않으면_404를_반환한다() throws Exception {
 		mockMvc.perform(post("/api/v1/orders")
 				.contentType(MediaType.APPLICATION_JSON)

@@ -49,7 +49,7 @@ public class OrderService {
 		validate(userId, menuId);
 
 		User user = userFacade.getUserForUpdate(userId);
-		Menu menu = menuFacade.getMenu(menuId);
+		Menu menu = menuFacade.getOrderableMenu(menuId);
 
 		LocalDateTime paidAt = DateTimeUtils.utcNow();
 		user.usePoint(menu.getPrice());
