@@ -75,15 +75,33 @@ Authorization: Bearer {accessToken}
 JWT의 고유 식별값인 `jti`를 Redis의 `auth:blacklist:{jti}` 키로 저장한다.
 키의 TTL은 JWT의 남은 유효시간이며, 블랙리스트에 등록된 토큰은 만료 전이라도 다시 사용할 수 없다.
 
-## 4. 회원탈퇴
+성공하면 `200 OK`와 로그아웃 완료 메시지를 반환한다. 반환할 데이터가 없으므로 `data` 필드는 포함하지 않는다.
+
+```json
+{
+  "code": "SUCCESS",
+  "message": "로그아웃이 완료되었습니다."
+}
+```
+
+## 4. 회원 탈퇴
 
 ```http
-DELETE /api/v1/users/me
+PATCH /api/v1/users/me
 Authorization: Bearer {accessToken}
 ```
 
 회원 행을 삭제하지 않고 `users.is_deleted`를 `true`로 변경한다.
 현재 요청에 사용한 JWT도 블랙리스트에 등록하며, 탈퇴 회원이 발급받았던 다른 JWT도 사용자 상태 검사에서 거부한다.
+
+성공하면 `200 OK`와 회원 탈퇴 완료 메시지를 반환한다. 반환할 데이터가 없으므로 `data` 필드는 포함하지 않는다.
+
+```json
+{
+  "code": "SUCCESS",
+  "message": "회원 탈퇴가 완료되었습니다."
+}
+```
 
 ## 5. 토큰 설정
 

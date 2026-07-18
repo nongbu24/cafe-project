@@ -1,7 +1,7 @@
 package com.example.cafe.auth.controller;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -127,7 +127,10 @@ class AuthControllerTest {
 
 		mockMvc.perform(post("/api/v1/auth/logout")
 				.header("Authorization", "Bearer " + token))
-			.andExpect(status().isOk());
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.code").value("SUCCESS"))
+			.andExpect(jsonPath("$.message").value("로그아웃이 완료되었습니다."))
+			.andExpect(jsonPath("$.data").doesNotExist());
 
 		mockMvc.perform(post("/api/v1/auth/logout")
 				.header("Authorization", "Bearer " + token))
@@ -140,9 +143,12 @@ class AuthControllerTest {
 		signup("withdraw_user", "Cafe1234!");
 		String token = login("withdraw_user", "Cafe1234!");
 
-		mockMvc.perform(delete("/api/v1/users/me")
+		mockMvc.perform(patch("/api/v1/users/me")
 				.header("Authorization", "Bearer " + token))
-			.andExpect(status().isOk());
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.code").value("SUCCESS"))
+			.andExpect(jsonPath("$.message").value("회원 탈퇴가 완료되었습니다."))
+			.andExpect(jsonPath("$.data").doesNotExist());
 
 		Boolean deleted = jdbcTemplate.queryForObject(
 			"SELECT is_deleted FROM users WHERE username = 'withdraw_user'",

@@ -44,6 +44,6 @@ public class AuthController {
 		TokenClaims claims = (TokenClaims) request.getAttribute(AuthenticationInterceptor.TOKEN_CLAIMS);
 		authService.logout(claims);
 
-		return ApiResponse.success(null);
+		return ApiResponse.successMessage("로그아웃이 완료되었습니다.");
 	}
 }
