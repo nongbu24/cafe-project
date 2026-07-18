@@ -172,7 +172,8 @@ JWT 블랙리스트는 관계형 DB 테이블이 아니므로 ERD에 포함하�
 | `sent_at` | `TIMESTAMP` | NULL | 전송 성공 시각 |
 | `created_at` | `TIMESTAMP` | NOT NULL | 이벤트 생성 시각 |
 
-주문 트랜잭션 커밋 직후 비동기로 전송을 시도하고, 실패한 이벤트는 별도 작업이 재시도한다.
+현재 구현은 주문 트랜잭션 커밋 후 mock 전송 지점으로 이벤트를 전송하고, 성공하면 `SENT`로 표시한다.
+`FAILED` 처리, `retry_count` 증가, `next_retry_at` 계산과 재시도 작업은 향후 구현 범위다.
 `order_id`의 유일 제약으로 같은 주문의 이벤트가 중복 생성되는 것을 막는다.
 외부 수신 측에는 `eventId`를 함께 보내 같은 이벤트의 재전송을 식별할 수 있게 한다.
 
@@ -182,7 +183,7 @@ JWT 블랙리스트는 관계형 DB 테이블이 아니므로 ERD에 포함하�
 |---|---|---|
 | `idx_orders_paid_at_menu` | `orders(status, paid_at, menu_id)` | 최근 7일 결제 주문을 메뉴별로 집계 |
 | `idx_point_transaction_user_created` | `point_transaction(user_id, created_at)` | 회원별 포인트 이력 조회와 감사 |
-| `idx_outbox_status_retry` | `order_event_outbox(status, next_retry_at)` | 전송 또는 재시도할 이벤트 조회 |
+| `idx_outbox_status_retry` | `order_event_outbox(status, next_retry_at)` | 향후 전송 실패 이벤트 재시도 조회 |
 
 ## 5. 인기 메뉴 집계 규칙
 
