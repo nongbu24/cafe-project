@@ -48,6 +48,6 @@ public class UserFacade {
 	public User getActiveUserForUpdate(long userId) {
 		return userRepository.findByIdForUpdate(userId)
 			.filter(found -> !found.isWithdrawn())
-			.orElseThrow(() -> new ApplicationException(ErrorCode.USER_NOT_FOUND));
+			.orElseThrow(() -> new ApplicationException(ErrorCode.INVALID_TOKEN));
 	}
 }

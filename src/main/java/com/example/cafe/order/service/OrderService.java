@@ -65,7 +65,7 @@ public class OrderService {
 
 		OrderEventOutbox event = orderEventOutboxRepository.saveAndFlush(OrderEventOutbox.orderPaid(order));
 		event.updatePayload(orderPaidPayload(event, order, user, menu));
-		applicationEventPublisher.publishEvent(event);
+		applicationEventPublisher.publishEvent(new OrderPaidOutboxEvent(event.getId()));
 
 		return new OrderResponse(
 			order.getId(),

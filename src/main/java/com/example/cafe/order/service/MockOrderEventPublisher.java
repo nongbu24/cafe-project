@@ -5,6 +5,9 @@ import com.example.cafe.order.dto.OrderPaidEventPayload;
 import com.example.cafe.order.entity.OrderEventOutbox;
 import com.example.cafe.order.repository.OrderEventOutboxRepository;
 import java.time.OffsetDateTime;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -15,6 +18,8 @@ import tools.jackson.databind.ObjectMapper;
 
 @Component
 public class MockOrderEventPublisher {
+
+	private static final Logger log = LoggerFactory.getLogger(MockOrderEventPublisher.class);
 
 	private final MockOrderDataCollector dataCollector;
 	private final OrderEventOutboxRepository orderEventOutboxRepository;
@@ -30,13 +35,19 @@ public class MockOrderEventPublisher {
 		this.objectMapper = objectMapper;
 	}
 
+	@Async
 	@TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
 	@Transactional(propagation = Propagation.REQUIRES_NEW)
-	public void publish(OrderEventOutbox event) {
-		dataCollector.send(toPayload(event));
+	public void publish(OrderPaidOutboxEvent publishedEvent) {
+		OrderEventOutbox event = orderEventOutboxRepository.findById(publishedEvent.eventId())
+			.orElseThrow(() -> new IllegalStateException("Outbox 이벤트를 찾을 수 없습니다."));
 
-		event.markSent(DateTimeUtils.utcNow());
-		orderEventOutboxRepository.save(event);
+		try {
+			dataCollector.send(toPayload(event));
+			event.markSent(DateTimeUtils.utcNow());
+		} catch (Exception exception) {
+			log.warn("Outbox 이벤트 전송에 실패했습니다. eventId={}", publishedEvent.eventId(), exception);
+		}
 	}
 
 	private OrderPaidEventPayload toPayload(OrderEventOutbox event) {

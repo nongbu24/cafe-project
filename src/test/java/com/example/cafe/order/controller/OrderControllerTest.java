@@ -2,6 +2,9 @@ package com.example.cafe.order.controller;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.timeout;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -11,10 +14,17 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.example.cafe.auth.service.JwtTokenProvider;
 import com.example.cafe.auth.store.TokenBlacklistStore;
+import com.example.cafe.order.dto.OrderPaidEventPayload;
 import com.example.cafe.order.service.MockOrderDataCollector;
 import com.example.cafe.user.entity.User;
 import com.example.cafe.user.repository.UserRepository;
 import java.time.LocalDateTime;
+import java.util.List;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -56,6 +66,7 @@ class OrderControllerTest {
 
 	@BeforeEach
 	void setUp() {
+		reset(dataCollector);
 		jdbcTemplate.update("DELETE FROM order_event_outbox");
 		jdbcTemplate.update("DELETE FROM point_transaction");
 		jdbcTemplate.update("DELETE FROM orders");
@@ -117,7 +128,6 @@ class OrderControllerTest {
 		assertThat(countOrders()).isEqualTo(1);
 		assertThat(countPaymentTransactions()).isEqualTo(1);
 		assertThat(findPaymentTransactionAmount()).isEqualTo(5000);
-		assertThat(findOutboxStatus()).isEqualTo("SENT");
 		assertThat(findOutboxPayload())
 			.contains("\"eventId\":" + eventId)
 			.contains("\"eventType\":\"ORDER_PAID\"")
@@ -134,6 +144,64 @@ class OrderControllerTest {
 				&& payload.paymentAmount() == 5000
 				&& "ORDER_PAID".equals(payload.eventType())
 		));
+		waitForOutboxStatus("SENT");
+	}
+
+	@Test
+	void Outbox_전송에_실패해도_주문_응답과_결제는_성공하고_전송_대기로_남긴다() throws Exception {
+		doThrow(new RuntimeException("collector down")).when(dataCollector).send(any(OrderPaidEventPayload.class));
+
+		mockMvc.perform(post("/api/v1/orders")
+				.header("Authorization", bearerToken())
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("""
+					{
+					  "menuId": %d
+					}
+					""".formatted(MENU_ID)))
+			.andExpect(status().isCreated())
+			.andExpect(jsonPath("$.data.userId").value(USER_ID))
+			.andExpect(jsonPath("$.data.pointBalance").value(7000));
+
+		Long eventId = findOnlyOutboxId();
+		verify(dataCollector, timeout(1000)).send(argThat(payload ->
+			payload.eventId().equals(eventId)
+				&& payload.userId() == USER_ID
+				&& payload.menuId() == MENU_ID
+				&& payload.paymentAmount() == 5000
+		));
+		assertThat(findPointBalance()).isEqualTo(7000);
+		assertThat(countOrders()).isEqualTo(1);
+		assertThat(countPaymentTransactions()).isEqualTo(1);
+		assertThat(findOutboxStatus()).isEqualTo("PENDING");
+	}
+
+	@Test
+	void 같은_회원의_동시_결제는_잔액보다_많이_사용할_수_없다() throws Exception {
+		jdbcTemplate.update("UPDATE users SET point_balance = 5000 WHERE id = ?", USER_ID);
+		String token = bearerToken();
+
+		ExecutorService executorService = Executors.newFixedThreadPool(2);
+		CountDownLatch ready = new CountDownLatch(2);
+		CountDownLatch start = new CountDownLatch(1);
+
+		try {
+			Future<Integer> first = executorService.submit(() -> orderStatusAfterWaiting(token, ready, start));
+			Future<Integer> second = executorService.submit(() -> orderStatusAfterWaiting(token, ready, start));
+
+			assertThat(ready.await(1, TimeUnit.SECONDS)).isTrue();
+			start.countDown();
+
+			List<Integer> statuses = List.of(first.get(3, TimeUnit.SECONDS), second.get(3, TimeUnit.SECONDS));
+
+			assertThat(statuses).containsExactlyInAnyOrder(201, 409);
+			assertThat(findPointBalance()).isZero();
+			assertThat(countOrders()).isEqualTo(1);
+			assertThat(countPaymentTransactions()).isEqualTo(1);
+			waitForSentOutboxCount(1);
+		} finally {
+			executorService.shutdownNow();
+		}
 	}
 
 	@Test
@@ -154,6 +222,7 @@ class OrderControllerTest {
 		assertThat(findPointBalance()).isEqualTo(7000);
 		assertThat(findPointBalance(OTHER_USER_ID)).isEqualTo(9000);
 		assertThat(countOrders()).isEqualTo(1);
+		waitForOutboxStatus("SENT");
 	}
 
 	@Test
@@ -352,6 +421,13 @@ class OrderControllerTest {
 		);
 	}
 
+	private Long countSentOutbox() {
+		return jdbcTemplate.queryForObject(
+			"SELECT COUNT(*) FROM order_event_outbox WHERE status = 'SENT'",
+			Long.class
+		);
+	}
+
 	private String findOutboxPayload() {
 		return jdbcTemplate.queryForObject(
 			"SELECT payload FROM order_event_outbox",
@@ -362,6 +438,51 @@ class OrderControllerTest {
 	private String bearerToken() {
 		User user = userRepository.findById(USER_ID).orElseThrow();
 		return "Bearer " + jwtTokenProvider.issue(user).value();
+	}
+
+	private int orderStatusAfterWaiting(
+		String token,
+		CountDownLatch ready,
+		CountDownLatch start
+	) throws Exception {
+		ready.countDown();
+		assertThat(start.await(1, TimeUnit.SECONDS)).isTrue();
+
+		return mockMvc.perform(post("/api/v1/orders")
+				.header("Authorization", token)
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("""
+					{
+					  "menuId": %d
+					}
+					""".formatted(MENU_ID)))
+			.andReturn()
+			.getResponse()
+			.getStatus();
+	}
+
+	private void waitForOutboxStatus(String expectedStatus) throws InterruptedException {
+		for (int attempt = 0; attempt < 20; attempt++) {
+			if (expectedStatus.equals(findOutboxStatus())) {
+				return;
+			}
+
+			Thread.sleep(50);
+		}
+
+		assertThat(findOutboxStatus()).isEqualTo(expectedStatus);
+	}
+
+	private void waitForSentOutboxCount(long expectedCount) throws InterruptedException {
+		for (int attempt = 0; attempt < 20; attempt++) {
+			if (countSentOutbox() == expectedCount) {
+				return;
+			}
+
+			Thread.sleep(50);
+		}
+
+		assertThat(countSentOutbox()).isEqualTo(expectedCount);
 	}
 
 	@TestConfiguration(proxyBeanMethods = false)
