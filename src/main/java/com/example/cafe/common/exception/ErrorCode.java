@@ -11,6 +11,12 @@ public enum ErrorCode {
 	USER_NOT_FOUND(HttpStatus.NOT_FOUND, "USER_NOT_FOUND", "사용자를 찾을 수 없습니다."),
 	DUPLICATE_USERNAME(HttpStatus.CONFLICT, "DUPLICATE_USERNAME", "이미 사용 중인 username입니다."),
 
+	// 메뉴
+	MENU_NOT_FOUND(HttpStatus.NOT_FOUND, "MENU_NOT_FOUND", "메뉴를 찾을 수 없습니다."),
+
+	// 주문
+	INSUFFICIENT_POINTS(HttpStatus.CONFLICT, "INSUFFICIENT_POINTS", "포인트 잔액이 부족합니다."),
+
 	// 인증
 	INVALID_CREDENTIALS(HttpStatus.UNAUTHORIZED, "INVALID_CREDENTIALS", "username 또는 password가 올바르지 않습니다."),
 	AUTHENTICATION_REQUIRED(HttpStatus.UNAUTHORIZED, "AUTHENTICATION_REQUIRED", "로그인이 필요합니다."),

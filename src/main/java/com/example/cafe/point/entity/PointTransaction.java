@@ -47,12 +47,14 @@ public class PointTransaction {
 
 	private PointTransaction(
 		User user,
+		Long orderId,
 		PointTransactionType type,
 		long amount,
 		long balanceAfter,
 		LocalDateTime createdAt
 	) {
 		this.user = user;
+		this.orderId = orderId;
 		this.type = type;
 		this.amount = amount;
 		this.balanceAfter = balanceAfter;
@@ -67,10 +69,28 @@ public class PointTransaction {
 	) {
 		return new PointTransaction(
 			user,
+			null,
 			PointTransactionType.CHARGE,
 			amount,
 			balanceAfter,
 			chargedAt
+		);
+	}
+
+	public static PointTransaction payment(
+		User user,
+		long orderId,
+		long amount,
+		long balanceAfter,
+		LocalDateTime paidAt
+	) {
+		return new PointTransaction(
+			user,
+			orderId,
+			PointTransactionType.PAYMENT,
+			amount,
+			balanceAfter,
+			paidAt
 		);
 	}
 }

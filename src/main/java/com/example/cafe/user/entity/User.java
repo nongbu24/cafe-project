@@ -91,4 +91,12 @@ public class User extends BaseEntity {
 			);
 		}
 	}
+
+	public void usePoint(long amount) {
+		if (pointBalance < amount) {
+			throw new ApplicationException(ErrorCode.INSUFFICIENT_POINTS);
+		}
+
+		pointBalance -= amount;
+	}
 }
