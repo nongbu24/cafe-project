@@ -34,6 +34,13 @@ Content-Type: application/json
 }
 ```
 
+### 오류 응답
+
+| HTTP 상태 | 오류 코드 | 발생 조건 |
+|---|---|---|
+| `400 Bad Request` | `INVALID_REQUEST` | `username` 또는 `password`가 형식·범위를 벗어남 |
+| `409 Conflict` | `DUPLICATE_USERNAME` | 이미 같은 `username`을 사용하는 회원이 존재함 |
+
 ## 2. 로그인
 
 ```http

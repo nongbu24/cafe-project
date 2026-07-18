@@ -95,7 +95,8 @@ Location: /api/v1/orders/1001
 ## 데이터 수집 플랫폼 전송
 
 주문 트랜잭션이 커밋되면 Outbox 이벤트를 가능한 즉시 비동기로 전송한다.
-외부 플랫폼으로 전송하는 JSON 계약은 다음과 같다.
+`order_event_outbox.payload`에는 외부 플랫폼으로 전송할 원본 JSON을 저장한다.
+저장 payload와 외부 플랫폼으로 전송하는 JSON 계약은 다음과 같다.
 
 ```json
 {
@@ -117,6 +118,9 @@ Location: /api/v1/orders/1001
 | `menuId` | long | O | 메뉴 식별값 |
 | `paymentAmount` | long | O | 결제금액 |
 
-외부 플랫폼의 일시적인 장애는 이미 완료된 주문과 결제를 취소하지 않는다.
-전송 실패 이벤트는 재시도하며, 적어도 한 번(at-least-once) 전달을 보장하는 방향으로 구현한다.
+현재 구현은 실제 외부 플랫폼 대신 mock 전송 지점으로 즉시 전송하고, 성공하면 Outbox 이벤트를 `SENT`로 표시한다.
+전송 실패 이벤트의 `FAILED` 처리, `retry_count` 증가, `next_retry_at` 계산과 재시도 작업은 향후 구현 범위다.
+
+향후 재시도 기능을 추가할 때는 이미 완료된 주문과 결제를 취소하지 않고,
+적어도 한 번(at-least-once) 전달을 보장하는 방향으로 구현한다.
 따라서 외부 수신 측은 같은 `eventId`를 중복 집계하지 않아야 한다.
