@@ -147,6 +147,8 @@ PostgreSQL datasource는 `postgres` 프로필에서만 활성화하며 `POSTGRES
 ### REST API 공통 구현 규칙
 
 - REST API 성공 응답은 `ApiResponse<T>`의 `code`, `message`, `data` 구조를 사용하고 `ApiResponse.success(...)`로 생성한다.
+- 성공 응답 메시지는 기본적으로 `요청이 성공적으로 처리되었습니다.`를 사용하되, 주문 완료처럼 API 상황에 맞는 문구가 있으면
+  해당 API 계약 문서와 테스트에 그 응답 메시지를 명시한다.
 - 오류 응답은 `ErrorResponse`의 `code`, `message` 구조를 사용하며 `data` 필드를 포함하지 않는다.
 - 애플리케이션 오류의 HTTP 상태, 응답 코드와 기본 메시지는 `ErrorCode`에서 한곳에 관리한다.
   서비스와 컨트롤러에 같은 오류 코드나 기본 메시지를 문자열로 중복 작성하지 않는다.
