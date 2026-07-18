@@ -43,3 +43,44 @@ dependencies {
 tasks.named('test') {
     useJUnitPlatform()
 }
+
+def readDotenv(File dotenvFile) {
+    if (!dotenvFile.exists()) {
+        return [:]
+    }
+
+    def values = [:]
+    dotenvFile.eachLine('UTF-8') { line ->
+        def trimmed = line.trim()
+        if (!trimmed || trimmed.startsWith('#') || !trimmed.contains('=')) {
+            return
+        }
+
+        def normalized = trimmed.startsWith('export ') ? trimmed.substring('export '.length()).trim() : trimmed
+        def separatorIndex = normalized.indexOf('=')
+        def key = normalized.substring(0, separatorIndex).trim()
+        def value = normalized.substring(separatorIndex + 1).trim()
+
+        if (!key) {
+            return
+        }
+
+        if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) {
+            value = value.substring(1, value.length() - 1)
+        }
+
+        values[key] = value
+    }
+
+    values
+}
+
+tasks.named('bootRun') {
+    doFirst {
+        readDotenv(rootProject.file('.env')).each { key, value ->
+            if (System.getenv(key) == null) {
+                environment key, value
+            }
+        }
+    }
+}
