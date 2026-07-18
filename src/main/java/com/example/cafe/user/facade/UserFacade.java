@@ -44,4 +44,10 @@ public class UserFacade {
 		return userRepository.findByIdForUpdate(userId)
 			.orElseThrow(() -> new ApplicationException(ErrorCode.USER_NOT_FOUND));
 	}
+
+	public User getActiveUserForUpdate(long userId) {
+		return userRepository.findByIdForUpdate(userId)
+			.filter(found -> !found.isWithdrawn())
+			.orElseThrow(() -> new ApplicationException(ErrorCode.USER_NOT_FOUND));
+	}
 }

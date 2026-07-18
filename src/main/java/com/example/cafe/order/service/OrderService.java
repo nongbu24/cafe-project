@@ -48,7 +48,7 @@ public class OrderService {
 	public OrderResponse order(long userId, long menuId) {
 		validate(userId, menuId);
 
-		User user = userFacade.getUserForUpdate(userId);
+		User user = userFacade.getActiveUserForUpdate(userId);
 		Menu menu = menuFacade.getOrderableMenu(menuId);
 
 		LocalDateTime paidAt = DateTimeUtils.utcNow();

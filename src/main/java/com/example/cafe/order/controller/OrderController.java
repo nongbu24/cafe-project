@@ -1,9 +1,11 @@
 package com.example.cafe.order.controller;
 
+import com.example.cafe.auth.service.AuthenticationInterceptor;
 import com.example.cafe.common.response.ApiResponse;
 import com.example.cafe.order.dto.OrderCreateRequest;
 import com.example.cafe.order.dto.OrderResponse;
 import com.example.cafe.order.service.OrderService;
+import jakarta.servlet.http.HttpServletRequest;
 import java.net.URI;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -23,11 +25,13 @@ public class OrderController {
 
 	@PostMapping
 	public ResponseEntity<ApiResponse<OrderResponse>> order(
-		@RequestBody OrderCreateRequest request
+		@RequestBody OrderCreateRequest request,
+		HttpServletRequest httpServletRequest
 	) {
-		OrderResponse response = orderService.order(request.userId(), request.menuId());
+		long userId = (long) httpServletRequest.getAttribute(AuthenticationInterceptor.AUTHENTICATED_USER_ID);
+		OrderResponse response = orderService.order(userId, request.menuId());
 
 		return ResponseEntity.created(URI.create("/api/v1/orders/" + response.orderId()))
-			.body(ApiResponse.success(response));
+			.body(ApiResponse.success("SUCCESS", "주문이 완료되었습니다.", response));
 	}
 }

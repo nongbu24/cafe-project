@@ -5,28 +5,29 @@
 
 ## 메뉴 주문 및 결제
 
-사용자와 메뉴를 식별하여 주문하고, 사용자의 포인트에서 메뉴 가격만큼 차감한다.
+로그인한 사용자와 메뉴를 식별하여 주문하고, 로그인한 사용자의 포인트에서 메뉴 가격만큼 차감한다.
+클라이언트는 주문할 회원 ID를 요청 본문으로 전달하지 않는다.
 
 ### 요청
 
 ```http
 POST /api/v1/orders
+Authorization: Bearer {accessToken}
 Content-Type: application/json
 ```
 
 ```json
 {
-  "userId": 10,
   "menuId": 2
 }
 ```
 
 | 필드 | 타입 | 필수 | 제약조건 | 설명 |
 |---|---|---|---|---|
-| `userId` | long | O | 1 이상 | 사용자 식별값 |
 | `menuId` | long | O | 1 이상 | 주문할 메뉴 식별값 |
 
 한 요청에서는 메뉴 한 개를 한 개 주문한다. 수량과 여러 메뉴 주문은 현재 범위에 포함하지 않는다.
+주문 사용자 식별값은 JWT 인증 결과에서만 사용한다. 요청 본문에 `userId`가 포함되어도 주문 주체로 사용하지 않는다.
 
 ### 성공 응답
 
@@ -41,7 +42,7 @@ Location: /api/v1/orders/1001
 ```json
 {
   "code": "SUCCESS",
-  "message": "요청이 성공적으로 처리되었습니다.",
+  "message": "주문이 완료되었습니다.",
   "data": {
     "orderId": 1001,
     "userId": 10,
@@ -60,7 +61,7 @@ Location: /api/v1/orders/1001
 | 필드 | 타입 | 필수 | 설명 |
 |---|---|---|---|
 | `code` | string | O | 성공 응답 코드 `SUCCESS` |
-| `message` | string | O | 요청 처리 결과 설명 |
+| `message` | string | O | 주문 처리 결과 설명 |
 | `data.orderId` | long | O | 주문 식별값 |
 | `data.userId` | long | O | 사용자 식별값 |
 | `data.menu.menuId` | long | O | 주문한 메뉴 식별값 |
@@ -74,8 +75,10 @@ Location: /api/v1/orders/1001
 
 | HTTP 상태 | 오류 코드 | 발생 조건 |
 |---|---|---|
-| `400 Bad Request` | `INVALID_REQUEST` | 사용자 또는 메뉴 식별값이 형식·범위를 벗어남 |
-| `404 Not Found` | `USER_NOT_FOUND` | 사용자가 존재하지 않음 |
+| `400 Bad Request` | `INVALID_REQUEST` | 메뉴 식별값이 형식·범위를 벗어남 |
+| `401 Unauthorized` | `AUTHENTICATION_REQUIRED` | Authorization 헤더가 없거나 Bearer 토큰 형식이 아님 |
+| `401 Unauthorized` | `INVALID_TOKEN` | 토큰이 유효하지 않거나 토큰의 사용자가 존재하지 않거나 탈퇴 상태임 |
+| `401 Unauthorized` | `BLACKLISTED_TOKEN` | 로그아웃되어 사용할 수 없는 토큰으로 요청함 |
 | `404 Not Found` | `MENU_NOT_FOUND` | 메뉴가 존재하지 않음 |
 | `409 Conflict` | `MENU_NOT_AVAILABLE` | 메뉴가 품절 또는 단종 상태라 주문할 수 없음 |
 | `409 Conflict` | `INSUFFICIENT_POINTS` | 사용자의 포인트가 메뉴 가격보다 적음 |
@@ -84,7 +87,7 @@ Location: /api/v1/orders/1001
 
 다음 처리는 하나의 DB 트랜잭션으로 실행한다.
 
-1. 회원과 주문 가능한 메뉴를 조회한다. 메뉴 상태가 `AVAILABLE`이 아니면 주문하지 않는다.
+1. JWT에서 인증된 회원과 주문 가능한 메뉴를 조회한다. 메뉴 상태가 `AVAILABLE`이 아니면 주문하지 않는다.
 2. 회원의 현재 포인트가 메뉴 가격 이상인지 확인한다.
 3. 포인트에서 메뉴 가격을 차감한다.
 4. `PAID` 주문과 `PAYMENT` 포인트 거래를 저장한다.
