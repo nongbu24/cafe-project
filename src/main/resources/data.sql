@@ -112,3 +112,20 @@ INSERT INTO users (username, password, user_status, point_balance, is_deleted, c
 ('user5', '$2y$10$lSOaDS1Xfyg9316q6YW32u.VeFNb.dL17CBI5xsGDJFWJZXJ5d0VC', 'USER', 0, FALSE, CURRENT_TIMESTAMP, NULL),
 ('user6', '$2y$10$lSOaDS1Xfyg9316q6YW32u.VeFNb.dL17CBI5xsGDJFWJZXJ5d0VC', 'USER', 0, FALSE, CURRENT_TIMESTAMP, NULL),
 ('user7', '$2y$10$lSOaDS1Xfyg9316q6YW32u.VeFNb.dL17CBI5xsGDJFWJZXJ5d0VC', 'USER', 0, FALSE, CURRENT_TIMESTAMP, NULL);
+
+-- 인기 메뉴 API 로컬 확인용 최근 결제 주문 데이터다.
+-- 판매중 메뉴 2개와 품절 메뉴 1개가 집계되도록 주문 수를 다르게 둔다.
+INSERT INTO orders (user_id, menu_id, menu_name, payment_amount, status, paid_at, created_at)
+SELECT u.id, m.id, m.name, m.price, 'PAID', DATEADD('HOUR', -10, CURRENT_TIMESTAMP), CURRENT_TIMESTAMP
+FROM users u, menus m, SYSTEM_RANGE(1, 7)
+WHERE u.username = 'user1' AND m.id = 2;
+
+INSERT INTO orders (user_id, menu_id, menu_name, payment_amount, status, paid_at, created_at)
+SELECT u.id, m.id, m.name, m.price, 'PAID', DATEADD('HOUR', -11, CURRENT_TIMESTAMP), CURRENT_TIMESTAMP
+FROM users u, menus m, SYSTEM_RANGE(1, 5)
+WHERE u.username = 'user1' AND m.id = 1;
+
+INSERT INTO orders (user_id, menu_id, menu_name, payment_amount, status, paid_at, created_at)
+SELECT u.id, m.id, m.name, m.price, 'PAID', DATEADD('HOUR', -12, CURRENT_TIMESTAMP), CURRENT_TIMESTAMP
+FROM users u, menus m, SYSTEM_RANGE(1, 3)
+WHERE u.username = 'user1' AND m.id = 81;
