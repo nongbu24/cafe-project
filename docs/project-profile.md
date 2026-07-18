@@ -15,7 +15,7 @@
 ## 기술과 구조
 
 - 언어: Java 21
-- 런타임·프레임워크: Spring Boot 4.1.0, Spring MVC, Spring Data JPA, WebSocket
+- 런타임·프레임워크: Spring Boot 4.1.0, Spring MVC, Spring Data JPA, QueryDSL, WebSocket
 - 패키지·빌드 도구: Gradle Wrapper 9.5.1, Groovy DSL
 - 데이터 저장소: 개발 환경 H2, 운영 환경 PostgreSQL
 - 테스트 도구: JUnit Jupiter, Spring Boot Test, Spring Data JPA Test, Spring MVC Test,
@@ -84,6 +84,9 @@
 - 공통 패키지: 여러 도메인이 함께 사용하는 응답과 예외 처리처럼 횡단 관심사만 `common`에 둔다.
 - 개발 데이터베이스: H2
 - 운영 데이터베이스: PostgreSQL
+- JPA에서 직접 쿼리를 작성해야 하는 경우 Spring Data JPA의 `@Query` 대신 QueryDSL을 사용한다.
+  단순 조건 조회는 메서드 이름 기반 쿼리를 우선 사용하고, 복잡한 조회·집계·락처럼 직접 쿼리 표현이 필요한 경우
+  도메인 `repository` 패키지의 커스텀 Repository 구현에서 QueryDSL로 작성한다.
 - 코드 스타일: 별도 포매터와 린터는 사용하지 않는다. 레퍼런스 프로젝트의 구조와 작성 방식을 참고하되, 본 프로젝트 안에서 패키지·네이밍·포맷이 일관되도록 작성한다.
 - 생성 시각과 수정 시각을 공통 NOT NULL 정책으로 관리하는 엔티티는 `BaseEntity`를 상속하여 `createdAt`과 `updatedAt`을 관리한다.
   도메인 정책상 수정 시각이 nullable인 엔티티는 예외로 둔다.
