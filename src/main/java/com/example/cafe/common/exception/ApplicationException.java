@@ -13,6 +13,14 @@ public class ApplicationException extends RuntimeException {
 		this.errorCode = errorCode;
 	}
 
+	public static ApplicationException invalidRequest() {
+		return new ApplicationException(ErrorCode.INVALID_REQUEST);
+	}
+
+	public static ApplicationException invalidRequest(String message) {
+		return new ApplicationException(ErrorCode.INVALID_REQUEST, message);
+	}
+
 	public ErrorCode getErrorCode() {
 		return errorCode;
 	}

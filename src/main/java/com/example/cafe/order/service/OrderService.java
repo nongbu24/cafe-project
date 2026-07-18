@@ -1,7 +1,7 @@
 package com.example.cafe.order.service;
 
 import com.example.cafe.common.exception.ApplicationException;
-import com.example.cafe.common.exception.ErrorCode;
+import com.example.cafe.common.util.DateTimeUtils;
 import com.example.cafe.menu.entity.Menu;
 import com.example.cafe.menu.facade.MenuFacade;
 import com.example.cafe.order.dto.OrderMenuResponse;
@@ -14,16 +14,12 @@ import com.example.cafe.point.facade.PointFacade;
 import com.example.cafe.user.entity.User;
 import com.example.cafe.user.facade.UserFacade;
 import java.time.LocalDateTime;
-import java.time.OffsetDateTime;
-import java.time.ZoneId;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class OrderService {
-
-	private static final ZoneId KOREA_ZONE = ZoneId.of("Asia/Seoul");
 
 	private final UserFacade userFacade;
 	private final MenuFacade menuFacade;
@@ -80,17 +76,17 @@ public class OrderService {
 			order.getPaymentAmount(),
 			user.getPointBalance(),
 			order.getStatus().name(),
-			toOffsetDateTime(paidAt)
+			DateTimeUtils.toKoreaOffsetDateTime(paidAt)
 		);
 	}
 
 	private void validate(long userId, long menuId) {
 		if (userId < 1) {
-			throw new ApplicationException(ErrorCode.INVALID_REQUEST, "userId는 1 이상이어야 합니다.");
+			throw ApplicationException.invalidRequest("userId는 1 이상이어야 합니다.");
 		}
 
 		if (menuId < 1) {
-			throw new ApplicationException(ErrorCode.INVALID_REQUEST, "menuId는 1 이상이어야 합니다.");
+			throw ApplicationException.invalidRequest("menuId는 1 이상이어야 합니다.");
 		}
 	}
 
@@ -98,9 +94,5 @@ public class OrderService {
 		return """
 			{"eventType":"ORDER_PAID","userId":%d,"menuId":%d,"paymentAmount":%d}
 			""".formatted(user.getId(), menu.getId(), order.getPaymentAmount()).trim();
-	}
-
-	private OffsetDateTime toOffsetDateTime(LocalDateTime dateTime) {
-		return dateTime.atZone(KOREA_ZONE).toOffsetDateTime();
 	}
 }

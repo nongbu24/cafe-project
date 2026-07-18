@@ -1,11 +1,11 @@
 package com.example.cafe.order.service;
 
+import com.example.cafe.common.util.DateTimeUtils;
 import com.example.cafe.order.dto.OrderPaidEventPayload;
 import com.example.cafe.order.entity.Order;
 import com.example.cafe.order.entity.OrderEventOutbox;
 import com.example.cafe.order.repository.OrderEventOutboxRepository;
 import java.time.LocalDateTime;
-import java.time.ZoneId;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -13,9 +13,7 @@ import org.springframework.transaction.event.TransactionPhase;
 import org.springframework.transaction.event.TransactionalEventListener;
 
 @Component
-public class MockOrderEventPublisher implements OrderEventPublisher {
-
-	private static final ZoneId KOREA_ZONE = ZoneId.of("Asia/Seoul");
+public class MockOrderEventPublisher {
 
 	private final MockOrderDataCollector dataCollector;
 	private final OrderEventOutboxRepository orderEventOutboxRepository;
@@ -28,7 +26,6 @@ public class MockOrderEventPublisher implements OrderEventPublisher {
 		this.orderEventOutboxRepository = orderEventOutboxRepository;
 	}
 
-	@Override
 	@TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
 	@Transactional(propagation = Propagation.REQUIRES_NEW)
 	public void publish(OrderEventOutbox event) {
@@ -36,7 +33,7 @@ public class MockOrderEventPublisher implements OrderEventPublisher {
 		dataCollector.send(new OrderPaidEventPayload(
 			event.getId(),
 			event.getEventType().name(),
-			order.getPaidAt().atZone(KOREA_ZONE).toOffsetDateTime(),
+			DateTimeUtils.toKoreaOffsetDateTime(order.getPaidAt()),
 			order.getUser().getId(),
 			order.getMenu().getId(),
 			order.getPaymentAmount()

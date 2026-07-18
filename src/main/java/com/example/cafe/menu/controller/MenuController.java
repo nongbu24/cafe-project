@@ -1,7 +1,6 @@
 package com.example.cafe.menu.controller;
 
 import com.example.cafe.common.exception.ApplicationException;
-import com.example.cafe.common.exception.ErrorCode;
 import com.example.cafe.common.response.ApiResponse;
 import com.example.cafe.common.response.PageResponse;
 import com.example.cafe.menu.dto.MenuResponse;
@@ -39,11 +38,11 @@ public class MenuController {
 
 	private void validatePagination(int page, int size) {
 		if (page < 0) {
-			throw new ApplicationException(ErrorCode.INVALID_REQUEST, "page는 0 이상이어야 합니다.");
+			throw ApplicationException.invalidRequest("page는 0 이상이어야 합니다.");
 		}
 
 		if (size < 1 || size > 100) {
-			throw new ApplicationException(ErrorCode.INVALID_REQUEST, "size는 1 이상 100 이하여야 합니다.");
+			throw ApplicationException.invalidRequest("size는 1 이상 100 이하여야 합니다.");
 		}
 	}
 }

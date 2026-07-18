@@ -35,7 +35,7 @@ public class AuthService {
 	@Transactional
 	public UserResponse signup(SignupRequest request) {
 		if (request == null) {
-			throw new ApplicationException(ErrorCode.INVALID_REQUEST);
+			throw ApplicationException.invalidRequest();
 		}
 
 		validateCredentials(request.username(), request.password());
@@ -52,7 +52,7 @@ public class AuthService {
 	@Transactional(readOnly = true)
 	public LoginResponse login(LoginRequest request) {
 		if (request == null) {
-			throw new ApplicationException(ErrorCode.INVALID_REQUEST);
+			throw ApplicationException.invalidRequest();
 		}
 		validateCredentials(request.username(), request.password());
 
@@ -81,15 +81,13 @@ public class AuthService {
 
 	private void validateCredentials(String username, String password) {
 		if (username == null || !username.matches("[A-Za-z0-9_]{4,50}")) {
-			throw new ApplicationException(
-				ErrorCode.INVALID_REQUEST,
+			throw ApplicationException.invalidRequest(
 				"username은 영문, 숫자, 밑줄을 사용하여 4자 이상 50자 이하로 입력해야 합니다."
 			);
 		}
 
 		if (password == null || !password.matches("[!-~]{8,64}")) {
-			throw new ApplicationException(
-				ErrorCode.INVALID_REQUEST,
+			throw ApplicationException.invalidRequest(
 				"password는 공백 없이 영문, 숫자, 일반 특수문자로 8자 이상 64자 이하로 입력해야 합니다."
 			);
 		}

@@ -85,7 +85,7 @@ public class User extends BaseEntity {
 		try {
 			pointBalance = Math.addExact(pointBalance, amount);
 		} catch (ArithmeticException exception) {
-			throw new ApplicationException(ErrorCode.INVALID_REQUEST, "충전 후 포인트가 허용 범위를 초과합니다.");
+			throw ApplicationException.invalidRequest("충전 후 포인트가 허용 범위를 초과합니다.");
 		}
 	}
 

@@ -1,6 +1,7 @@
 package com.example.cafe.menu.service;
 
 import com.example.cafe.common.response.PageResponse;
+import com.example.cafe.common.util.DateTimeUtils;
 import com.example.cafe.menu.dto.MenuResponse;
 import com.example.cafe.menu.dto.PopularMenuItemResponse;
 import com.example.cafe.menu.dto.PopularMenuOrderCount;
@@ -10,8 +11,6 @@ import com.example.cafe.menu.repository.MenuRepository;
 import com.example.cafe.order.entity.OrderStatus;
 import com.example.cafe.order.facade.OrderFacade;
 import java.time.LocalDateTime;
-import java.time.OffsetDateTime;
-import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.List;
@@ -26,7 +25,6 @@ public class MenuService {
 
 	private static final int POPULAR_MENU_LIMIT = 3;
 	private static final int POPULAR_MENU_PERIOD_DAYS = 7;
-	private static final ZoneId KOREA_ZONE = ZoneId.of("Asia/Seoul");
 	private static final EnumSet<MenuStatus> VISIBLE_STATUSES =
 		EnumSet.of(MenuStatus.AVAILABLE, MenuStatus.SOLD_OUT);
 
@@ -59,8 +57,8 @@ public class MenuService {
 		);
 
 		return new PopularMenuResponse(
-			toOffsetDateTime(from),
-			toOffsetDateTime(to),
+			DateTimeUtils.toKoreaOffsetDateTime(from),
+			DateTimeUtils.toKoreaOffsetDateTime(to),
 			toPopularMenuItems(orderCounts)
 		);
 	}
@@ -80,9 +78,5 @@ public class MenuService {
 		}
 
 		return items;
-	}
-
-	private OffsetDateTime toOffsetDateTime(LocalDateTime dateTime) {
-		return dateTime.atZone(KOREA_ZONE).toOffsetDateTime();
 	}
 }
