@@ -4,7 +4,6 @@ public record PopularMenuItemResponse(
 	int rank,
 	long menuId,
 	String name,
-	long price,
-	long orderCount
+	long price
 ) {
 }

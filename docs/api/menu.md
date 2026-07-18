@@ -103,15 +103,13 @@ GET /api/v1/menus/popular
         "rank": 1,
         "menuId": 2,
         "name": "카페라테",
-        "price": 5000,
-        "orderCount": 18
+        "price": 5000
       },
       {
         "rank": 2,
         "menuId": 1,
         "name": "아메리카노",
-        "price": 4500,
-        "orderCount": 12
+        "price": 4500
       }
     ]
   }
@@ -129,7 +127,6 @@ GET /api/v1/menus/popular
 | `data.menus[].menuId` | long | O | 메뉴 식별값 |
 | `data.menus[].name` | string | O | 현재 메뉴 이름 |
 | `data.menus[].price` | long | O | 현재 메뉴 가격 |
-| `data.menus[].orderCount` | long | O | 집계 구간 내 결제 완료 주문 횟수 |
 
 ### 집계 규칙
 

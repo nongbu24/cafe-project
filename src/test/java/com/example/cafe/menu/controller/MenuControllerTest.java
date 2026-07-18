@@ -50,13 +50,13 @@ class MenuControllerTest {
 			.andExpect(jsonPath("$.data.menus[0].menuId").value(2))
 			.andExpect(jsonPath("$.data.menus[0].name").value("아이스 아메리카노"))
 			.andExpect(jsonPath("$.data.menus[0].price").value(4500))
-			.andExpect(jsonPath("$.data.menus[0].orderCount").value(4))
+			.andExpect(jsonPath("$.data.menus[0].orderCount").doesNotExist())
 			.andExpect(jsonPath("$.data.menus[1].rank").value(2))
 			.andExpect(jsonPath("$.data.menus[1].menuId").value(1))
-			.andExpect(jsonPath("$.data.menus[1].orderCount").value(3))
+			.andExpect(jsonPath("$.data.menus[1].orderCount").doesNotExist())
 			.andExpect(jsonPath("$.data.menus[2].rank").value(3))
 			.andExpect(jsonPath("$.data.menus[2].menuId").value(3))
-			.andExpect(jsonPath("$.data.menus[2].orderCount").value(3));
+			.andExpect(jsonPath("$.data.menus[2].orderCount").doesNotExist());
 	}
 
 	@Test

@@ -72,8 +72,7 @@ public class MenuService {
 				index + 1,
 				orderCount.menuId(),
 				orderCount.name(),
-				orderCount.price(),
-				orderCount.orderCount()
+				orderCount.price()
 			));
 		}
 
