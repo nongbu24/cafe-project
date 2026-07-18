@@ -3,10 +3,9 @@ package com.example.cafe.point.service;
 import com.example.cafe.common.exception.ApplicationException;
 import com.example.cafe.common.exception.ErrorCode;
 import com.example.cafe.point.dto.PointChargeResponse;
-import com.example.cafe.point.entity.PointTransaction;
-import com.example.cafe.point.repository.PointTransactionRepository;
+import com.example.cafe.point.facade.PointFacade;
 import com.example.cafe.user.entity.User;
-import com.example.cafe.user.repository.UserRepository;
+import com.example.cafe.user.facade.UserFacade;
 import java.time.OffsetDateTime;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -14,32 +13,31 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class PointService {
 
-	private final UserRepository userRepository;
-	private final PointTransactionRepository pointTransactionRepository;
+	private final UserFacade userFacade;
+	private final PointFacade pointFacade;
 
 	public PointService(
-		UserRepository userRepository,
-		PointTransactionRepository pointTransactionRepository
+		UserFacade userFacade,
+		PointFacade pointFacade
 	) {
-		this.userRepository = userRepository;
-		this.pointTransactionRepository = pointTransactionRepository;
+		this.userFacade = userFacade;
+		this.pointFacade = pointFacade;
 	}
 
 	@Transactional
 	public PointChargeResponse charge(long userId, long amount) {
 		validate(userId, amount);
 
-		User user = userRepository.findByIdForUpdate(userId)
-			.orElseThrow(() -> new ApplicationException(ErrorCode.USER_NOT_FOUND));
+		User user = userFacade.getUserForUpdate(userId);
 
 		user.charge(amount);
 		OffsetDateTime chargedAt = OffsetDateTime.now();
-		pointTransactionRepository.save(PointTransaction.charge(
+		pointFacade.saveChargeTransaction(
 			user,
 			amount,
 			user.getPointBalance(),
 			chargedAt.toLocalDateTime()
-		));
+		);
 
 		return new PointChargeResponse(
 			user.getId(),

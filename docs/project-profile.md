@@ -79,7 +79,7 @@
 ## 프로젝트 규칙
 
 - 기본 패키지: `com.example.cafe`
-- 도메인 패키지: 각 도메인 아래에 필요한 역할만 `controller`, `dto`, `entity`, `repository`, `service` 하위 패키지로 나눈다.
+- 도메인 패키지: 각 도메인 아래에 필요한 역할만 `controller`, `dto`, `entity`, `facade`, `repository`, `service` 하위 패키지로 나눈다.
   테스트 패키지는 대상 코드의 패키지 구조를 따른다.
 - 공통 패키지: 여러 도메인이 함께 사용하는 응답과 예외 처리처럼 횡단 관심사만 `common`에 둔다.
 - 개발 데이터베이스: H2

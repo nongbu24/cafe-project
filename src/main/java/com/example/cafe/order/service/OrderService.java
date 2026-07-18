@@ -3,17 +3,16 @@ package com.example.cafe.order.service;
 import com.example.cafe.common.exception.ApplicationException;
 import com.example.cafe.common.exception.ErrorCode;
 import com.example.cafe.menu.entity.Menu;
-import com.example.cafe.menu.repository.MenuRepository;
+import com.example.cafe.menu.facade.MenuFacade;
 import com.example.cafe.order.dto.OrderMenuResponse;
 import com.example.cafe.order.dto.OrderResponse;
 import com.example.cafe.order.entity.Order;
 import com.example.cafe.order.entity.OrderEventOutbox;
 import com.example.cafe.order.repository.OrderEventOutboxRepository;
 import com.example.cafe.order.repository.OrderRepository;
-import com.example.cafe.point.entity.PointTransaction;
-import com.example.cafe.point.repository.PointTransactionRepository;
+import com.example.cafe.point.facade.PointFacade;
 import com.example.cafe.user.entity.User;
-import com.example.cafe.user.repository.UserRepository;
+import com.example.cafe.user.facade.UserFacade;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
@@ -26,25 +25,25 @@ public class OrderService {
 
 	private static final ZoneId KOREA_ZONE = ZoneId.of("Asia/Seoul");
 
-	private final UserRepository userRepository;
-	private final MenuRepository menuRepository;
+	private final UserFacade userFacade;
+	private final MenuFacade menuFacade;
 	private final OrderRepository orderRepository;
-	private final PointTransactionRepository pointTransactionRepository;
+	private final PointFacade pointFacade;
 	private final OrderEventOutboxRepository orderEventOutboxRepository;
 	private final ApplicationEventPublisher applicationEventPublisher;
 
 	public OrderService(
-		UserRepository userRepository,
-		MenuRepository menuRepository,
+		UserFacade userFacade,
+		MenuFacade menuFacade,
 		OrderRepository orderRepository,
-		PointTransactionRepository pointTransactionRepository,
+		PointFacade pointFacade,
 		OrderEventOutboxRepository orderEventOutboxRepository,
 		ApplicationEventPublisher applicationEventPublisher
 	) {
-		this.userRepository = userRepository;
-		this.menuRepository = menuRepository;
+		this.userFacade = userFacade;
+		this.menuFacade = menuFacade;
 		this.orderRepository = orderRepository;
-		this.pointTransactionRepository = pointTransactionRepository;
+		this.pointFacade = pointFacade;
 		this.orderEventOutboxRepository = orderEventOutboxRepository;
 		this.applicationEventPublisher = applicationEventPublisher;
 	}
@@ -53,22 +52,20 @@ public class OrderService {
 	public OrderResponse order(long userId, long menuId) {
 		validate(userId, menuId);
 
-		User user = userRepository.findByIdForUpdate(userId)
-			.orElseThrow(() -> new ApplicationException(ErrorCode.USER_NOT_FOUND));
-		Menu menu = menuRepository.findById(menuId)
-			.orElseThrow(() -> new ApplicationException(ErrorCode.MENU_NOT_FOUND));
+		User user = userFacade.getUserForUpdate(userId);
+		Menu menu = menuFacade.getMenu(menuId);
 
 		LocalDateTime paidAt = LocalDateTime.now();
 		user.usePoint(menu.getPrice());
 
 		Order order = orderRepository.save(Order.paid(user, menu, paidAt));
-		pointTransactionRepository.save(PointTransaction.payment(
+		pointFacade.savePaymentTransaction(
 			user,
 			order.getId(),
 			order.getPaymentAmount(),
 			user.getPointBalance(),
 			paidAt
-		));
+		);
 
 		OrderEventOutbox event = orderEventOutboxRepository.save(OrderEventOutbox.orderPaid(
 			order,

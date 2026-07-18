@@ -4,7 +4,7 @@ import com.example.cafe.auth.store.TokenBlacklistStore;
 import com.example.cafe.common.exception.ApplicationException;
 import com.example.cafe.common.exception.ErrorCode;
 import com.example.cafe.user.entity.User;
-import com.example.cafe.user.repository.UserRepository;
+import com.example.cafe.user.facade.UserFacade;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.stereotype.Component;
@@ -18,16 +18,16 @@ public class AuthenticationInterceptor implements HandlerInterceptor {
 
 	private final JwtTokenProvider jwtTokenProvider;
 	private final TokenBlacklistStore tokenBlacklistStore;
-	private final UserRepository userRepository;
+	private final UserFacade userFacade;
 
 	public AuthenticationInterceptor(
 		JwtTokenProvider jwtTokenProvider,
 		TokenBlacklistStore tokenBlacklistStore,
-		UserRepository userRepository
+		UserFacade userFacade
 	) {
 		this.jwtTokenProvider = jwtTokenProvider;
 		this.tokenBlacklistStore = tokenBlacklistStore;
-		this.userRepository = userRepository;
+		this.userFacade = userFacade;
 	}
 
 	@Override
@@ -48,9 +48,7 @@ public class AuthenticationInterceptor implements HandlerInterceptor {
 			throw new ApplicationException(ErrorCode.BLACKLISTED_TOKEN);
 		}
 
-		User user = userRepository.findById(claims.userId())
-			.filter(found -> !found.isWithdrawn())
-			.orElseThrow(() -> new ApplicationException(ErrorCode.INVALID_TOKEN));
+		User user = userFacade.getActiveUser(claims.userId());
 
 		request.setAttribute(AUTHENTICATED_USER_ID, user.getId());
 		request.setAttribute(TOKEN_CLAIMS, claims);

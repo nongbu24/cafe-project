@@ -8,7 +8,7 @@ import com.example.cafe.menu.dto.PopularMenuResponse;
 import com.example.cafe.menu.entity.MenuStatus;
 import com.example.cafe.menu.repository.MenuRepository;
 import com.example.cafe.order.entity.OrderStatus;
-import com.example.cafe.order.repository.OrderRepository;
+import com.example.cafe.order.facade.OrderFacade;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
@@ -31,11 +31,11 @@ public class MenuService {
 		EnumSet.of(MenuStatus.AVAILABLE, MenuStatus.SOLD_OUT);
 
 	private final MenuRepository menuRepository;
-	private final OrderRepository orderRepository;
+	private final OrderFacade orderFacade;
 
-	public MenuService(MenuRepository menuRepository, OrderRepository orderRepository) {
+	public MenuService(MenuRepository menuRepository, OrderFacade orderFacade) {
 		this.menuRepository = menuRepository;
-		this.orderRepository = orderRepository;
+		this.orderFacade = orderFacade;
 	}
 
 	@Transactional(readOnly = true)
@@ -51,7 +51,7 @@ public class MenuService {
 	public PopularMenuResponse getPopularMenus() {
 		LocalDateTime to = LocalDateTime.now();
 		LocalDateTime from = to.minusDays(POPULAR_MENU_PERIOD_DAYS);
-		List<PopularMenuOrderCount> orderCounts = orderRepository.findPopularMenus(
+		List<PopularMenuOrderCount> orderCounts = orderFacade.findPopularMenus(
 			OrderStatus.PAID,
 			from,
 			to,
