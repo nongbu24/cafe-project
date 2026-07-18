@@ -5,12 +5,13 @@
 
 ## 포인트 충전
 
-사용자를 식별하고 입력받은 금액만큼 포인트를 충전한다.
+인증된 사용자를 식별하고 입력받은 금액만큼 포인트를 충전한다.
 
 ### 요청
 
 ```http
-POST /api/v1/users/{userId}/point-charges
+POST /api/v1/users/me/point-charges
+Authorization: Bearer {accessToken}
 Content-Type: application/json
 ```
 
@@ -22,7 +23,7 @@ Content-Type: application/json
 
 | 위치 | 필드 | 타입 | 필수 | 제약조건 | 설명 |
 |---|---|---|---|---|---|
-| path | `userId` | long | O | 1 이상 | 사용자 식별값 |
+| header | `Authorization` | string | O | Bearer 토큰 | 충전할 사용자 인증 토큰 |
 | body | `amount` | long | O | 1 이상 | 충전할 금액이자 포인트 |
 
 ### 성공 응답
@@ -55,8 +56,9 @@ Content-Type: application/json
 
 | HTTP 상태 | 오류 코드 | 발생 조건 |
 |---|---|---|
-| `400 Bad Request` | `INVALID_REQUEST` | 사용자 식별값 또는 충전금액이 형식·범위를 벗어남 |
-| `404 Not Found` | `USER_NOT_FOUND` | 사용자가 존재하지 않음 |
+| `400 Bad Request` | `INVALID_REQUEST` | 충전금액이 형식·범위를 벗어남 |
+| `401 Unauthorized` | `AUTHENTICATION_REQUIRED` | 인증 토큰이 없음 |
+| `401 Unauthorized` | `INVALID_TOKEN` | 인증 토큰이 유효하지 않거나 탈퇴한 사용자의 토큰임 |
 
 회원 잔액 갱신과 `CHARGE` 포인트 거래 저장은 하나의 DB 트랜잭션으로 처리한다.
 동시 충전이나 결제로 포인트가 유실되지 않도록 회원 행을 비관적 쓰기 잠금으로 조회한다.

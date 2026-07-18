@@ -15,7 +15,7 @@
 ## 기술과 구조
 
 - 언어: Java 21
-- 런타임·프레임워크: Spring Boot 4.1.0, Spring MVC, Spring Data JPA, QueryDSL, Flyway, WebSocket
+- 런타임·프레임워크: Spring Boot 4.1.0, Spring MVC, Bean Validation, Spring Data JPA, QueryDSL, Flyway, WebSocket
 - 패키지·빌드 도구: Gradle Wrapper 9.5.1, Groovy DSL
 - 데이터 저장소: 애플리케이션 기본 개발 데이터베이스는 인메모리 H2, 운영 목표 데이터베이스는 PostgreSQL
 - 로컬 인프라: Docker Compose, PostgreSQL 17-alpine, Redis 7.4-alpine

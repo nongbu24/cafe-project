@@ -28,7 +28,7 @@ public class PointService {
 	public PointChargeResponse charge(long userId, long amount) {
 		validate(userId, amount);
 
-		User user = userFacade.getUserForUpdate(userId);
+		User user = userFacade.getActiveUserForUpdate(userId);
 
 		user.charge(amount);
 		LocalDateTime chargedAt = DateTimeUtils.utcNow();
