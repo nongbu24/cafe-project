@@ -1,4 +1,6 @@
 package com.example.cafe.order.dto;
 
-public record OrderCreateRequest(long menuId) {
+import java.util.List;
+
+public record OrderCreateRequest(List<OrderItemCreateRequest> items) {
 }

@@ -10,8 +10,9 @@ DB가 직접 보장하는 테이블, 기본값, CHECK, FK와 인덱스는 Flyway
 
 - 카페 메뉴 목록 조회
 - 회원가입, 로그인, 로그아웃과 회원탈퇴
+- 회원별 장바구니 자동 생성
 - 회원 포인트 충전
-- 메뉴 주문 및 포인트 결제
+- 여러 메뉴와 수량을 포함한 메뉴 주문 및 포인트 결제
 - 주문 내역의 데이터 수집 플랫폼 전송
 - 최근 7일간 인기 메뉴 3개 조회
 
@@ -22,8 +23,12 @@ DB가 직접 보장하는 테이블, 기본값, CHECK, FK와 인덱스는 Flyway
 ```mermaid
 erDiagram
     USERS ||--o{ POINT_TRANSACTION : "포인트 거래"
+    USERS ||--|| CARTS : "장바구니"
+    CARTS ||--o{ CART_ITEMS : "장바구니 항목"
+    MENUS ||--o{ CART_ITEMS : "장바구니 메뉴"
     USERS ||--o{ ORDERS : "주문"
-    MENUS ||--o{ ORDERS : "주문 대상"
+    ORDERS ||--o{ ORDER_ITEMS : "주문 항목"
+    MENUS ||--o{ ORDER_ITEMS : "주문 메뉴"
     ORDERS ||--|| ORDER_EVENT_OUTBOX : "전송 이벤트"
 
     USERS {
@@ -56,15 +61,38 @@ erDiagram
         TIMESTAMP created_at
     }
 
+    CARTS {
+        BIGINT id PK
+        BIGINT user_id FK_UK
+        TIMESTAMP created_at
+        TIMESTAMP updated_at "NULL until modified"
+    }
+
+    CART_ITEMS {
+        BIGINT id PK
+        BIGINT cart_id FK
+        BIGINT menu_id FK
+        INT quantity
+        TIMESTAMP created_at
+        TIMESTAMP updated_at "NULL until modified"
+    }
+
     ORDERS {
         BIGINT id PK
         BIGINT user_id FK
-        BIGINT menu_id FK
-        VARCHAR menu_name
         BIGINT payment_amount
         VARCHAR status
         TIMESTAMP paid_at
         TIMESTAMP created_at
+    }
+
+    ORDER_ITEMS {
+        BIGINT id PK
+        BIGINT order_id FK
+        BIGINT menu_id FK
+        VARCHAR menu_name
+        BIGINT unit_price
+        INT quantity
     }
 
     ORDER_EVENT_OUTBOX {
@@ -104,6 +132,7 @@ JWT 블랙리스트는 관계형 DB 테이블이 아니므로 ERD에 포함하�
 
 포인트 잔액 갱신은 동시 요청에서 금액이 유실되지 않도록 회원 행을 비관적 쓰기 잠금으로 조회한 뒤 처리한다.
 회원탈퇴는 행을 삭제하지 않고 `is_deleted`를 `true`로 변경하며 탈퇴 회원의 로그인과 인증을 거부한다.
+회원 생성이 완료되면 해당 회원의 빈 장바구니를 함께 생성한다.
 
 ### 3.2 `menus`
 
@@ -138,25 +167,64 @@ JWT 블랙리스트는 관계형 DB 테이블이 아니므로 ERD에 포함하�
 `amount`는 항상 양수로 저장하고 `type`으로 증가와 감소를 구분한다.
 `PAYMENT`이면 `order_id`가 반드시 존재하고, `CHARGE`이면 `order_id`가 없어야 한다.
 
-### 3.4 `orders`
+### 3.4 `carts`
 
-결제가 완료된 메뉴 주문을 저장한다. 현재 요구사항에서는 한 주문에 메뉴 한 개만 포함한다.
+회원별 장바구니를 저장한다. 회원 생성 시 장바구니도 자동 생성하며 회원 1명은 장바구니 1개만 가진다.
+
+| 컬럼 | 타입 | 제약조건 | 설명 |
+|---|---|---|---|
+| `id` | `BIGINT` | PK, 자동 증가 | 장바구니 식별값 |
+| `user_id` | `BIGINT` | NOT NULL, UNIQUE, FK → `users.id` | 장바구니 소유 회원 |
+| `created_at` | `TIMESTAMP` | NOT NULL | 생성 시각 |
+| `updated_at` | `TIMESTAMP` | NULL | 마지막 수정 시각. 생성 이후 수정되지 않았으면 `NULL` |
+
+### 3.5 `cart_items`
+
+장바구니에 담긴 메뉴와 수량을 저장한다. 현재 구현 범위에는 장바구니 항목을 조작하는 공개 API는 포함하지 않는다.
+
+| 컬럼 | 타입 | 제약조건 | 설명 |
+|---|---|---|---|
+| `id` | `BIGINT` | PK, 자동 증가 | 장바구니 항목 식별값 |
+| `cart_id` | `BIGINT` | NOT NULL, FK → `carts.id` | 소속 장바구니 |
+| `menu_id` | `BIGINT` | NOT NULL, FK → `menus.id` | 장바구니에 담긴 메뉴 |
+| `quantity` | `INT` | NOT NULL, 1 이상 | 장바구니 수량 |
+| `created_at` | `TIMESTAMP` | NOT NULL | 생성 시각 |
+| `updated_at` | `TIMESTAMP` | NULL | 마지막 수정 시각. 생성 이후 수정되지 않았으면 `NULL` |
+
+`cart_id`, `menu_id` 조합은 유일하며 같은 장바구니에 같은 메뉴가 중복 행으로 저장되지 않는다.
+
+### 3.6 `orders`
+
+결제가 완료된 주문의 헤더 정보를 저장한다. 한 주문은 하나 이상의 주문 항목을 가진다.
 
 | 컬럼 | 타입 | 제약조건 | 설명 |
 |---|---|---|---|
 | `id` | `BIGINT` | PK, 자동 증가 | 주문 식별값 |
 | `user_id` | `BIGINT` | NOT NULL, FK → `users.id` | 주문 회원 |
-| `menu_id` | `BIGINT` | NOT NULL, FK → `menus.id` | 주문 메뉴 |
-| `menu_name` | `VARCHAR(100)` | NOT NULL | 주문 당시 메뉴 이름 스냅샷 |
 | `payment_amount` | `BIGINT` | NOT NULL, 1 이상 | 주문 당시 결제 금액 스냅샷 |
 | `status` | `VARCHAR(20)` | NOT NULL | 현재 범위에서는 `PAID` 사용 |
 | `paid_at` | `TIMESTAMP` | NOT NULL | 결제 완료 시각이자 인기 메뉴 집계 기준 |
 | `created_at` | `TIMESTAMP` | NOT NULL | 주문 생성 시각 |
 
-메뉴 이름과 가격을 주문에 복사하므로 이후 메뉴가 변경되어도 과거 주문 정보가 유지된다.
 회원 잔액 차감, 포인트 거래 저장, 주문 저장과 Outbox 저장은 하나의 DB 트랜잭션으로 처리한다.
 
-### 3.5 `order_event_outbox`
+### 3.7 `order_items`
+
+주문에 포함된 메뉴별 상세 항목을 저장한다.
+
+| 컬럼 | 타입 | 제약조건 | 설명 |
+|---|---|---|---|
+| `id` | `BIGINT` | PK, 자동 증가 | 주문 항목 식별값 |
+| `order_id` | `BIGINT` | NOT NULL, FK → `orders.id` | 소속 주문 |
+| `menu_id` | `BIGINT` | NOT NULL, FK → `menus.id` | 주문 메뉴 |
+| `menu_name` | `VARCHAR(100)` | NOT NULL | 주문 당시 메뉴 이름 스냅샷 |
+| `unit_price` | `BIGINT` | NOT NULL, 1 이상 | 주문 당시 메뉴 단가 스냅샷 |
+| `quantity` | `INT` | NOT NULL, 1 이상 | 주문 수량 |
+
+메뉴 이름과 단가를 주문 항목에 복사하므로 이후 메뉴가 변경되어도 과거 주문 정보가 유지된다.
+주문 총액은 각 주문 항목의 `unit_price * quantity` 합계와 같다.
+
+### 3.8 `order_event_outbox`
 
 결제가 완료된 주문을 외부 데이터 수집 플랫폼으로 안정적으로 전송하기 위한 이벤트를 저장한다.
 
@@ -165,7 +233,7 @@ JWT 블랙리스트는 관계형 DB 테이블이 아니므로 ERD에 포함하�
 | `id` | `BIGINT` | PK, 자동 증가 | 이벤트 식별값 |
 | `order_id` | `BIGINT` | NOT NULL, UNIQUE, FK → `orders.id` | 전송 대상 주문 |
 | `event_type` | `VARCHAR(50)` | NOT NULL | `ORDER_PAID` |
-| `payload` | `TEXT` | NOT NULL | 외부 전송 원본 JSON. `eventId`, `eventType`, `occurredAt`, `userId`, `menuId`, `paymentAmount` 포함 |
+| `payload` | `TEXT` | NOT NULL | 외부 전송 원본 JSON. `eventId`, `eventType`, `occurredAt`, `userId`, `items`, `paymentAmount` 포함 |
 | `status` | `VARCHAR(20)` | NOT NULL | `PENDING`, `SENDING`, `SENT`, `FAILED` |
 | `retry_count` | `INT` | NOT NULL, 기본값 0, 0 이상 | 전송 재시도 횟수 |
 | `next_retry_at` | `TIMESTAMP` | NULL | 다음 재시도 예정 시각 |
@@ -181,7 +249,9 @@ JWT 블랙리스트는 관계형 DB 테이블이 아니므로 ERD에 포함하�
 
 | 인덱스 | 대상 컬럼 | 목적 |
 |---|---|---|
-| `idx_orders_paid_at_menu` | `orders(status, paid_at, menu_id)` | 최근 7일 결제 주문을 메뉴별로 집계 |
+| `idx_orders_status_paid_at` | `orders(status, paid_at)` | 최근 7일 결제 주문 조회 |
+| `idx_order_items_menu_order` | `order_items(menu_id, order_id)` | 최근 7일 결제 주문을 메뉴별로 집계 |
+| `idx_cart_items_cart` | `cart_items(cart_id)` | 장바구니별 항목 조회 |
 | `idx_point_transaction_user_created` | `point_transaction(user_id, created_at)` | 회원별 포인트 이력 조회와 감사 |
 | `idx_outbox_status_retry` | `order_event_outbox(status, next_retry_at)` | 향후 전송 실패 이벤트 재시도 조회 |
 
@@ -190,7 +260,7 @@ JWT 블랙리스트는 관계형 DB 테이블이 아니므로 ERD에 포함하�
 - API 요청 처리 중 기준 시각 `asOf`를 한 번 정한다.
 - 집계 구간은 `asOf - 7일` 이상, `asOf` 미만이다. 즉, 직전 168시간이다.
 - `orders.status = 'PAID'`인 주문만 센다.
-- 현재 요구사항에서는 주문 한 건이 메뉴 한 개이므로 주문 행 한 건을 주문 횟수 1회로 센다.
+- 주문 항목의 `quantity` 합계를 메뉴별 주문 수로 센다.
 - 메뉴별 주문 횟수 내림차순, 주문 횟수가 같으면 메뉴 ID 오름차순으로 정렬하여 3개를 반환한다.
 - 집계 대상 주문이 3개 메뉴보다 적으면 존재하는 메뉴만 반환한다.
 

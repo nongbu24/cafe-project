@@ -41,7 +41,10 @@ class AuthControllerTest {
 	void setUp() {
 		jdbcTemplate.update("DELETE FROM order_event_outbox");
 		jdbcTemplate.update("DELETE FROM point_transaction");
+		jdbcTemplate.update("DELETE FROM order_items");
 		jdbcTemplate.update("DELETE FROM orders");
+		jdbcTemplate.update("DELETE FROM cart_items");
+		jdbcTemplate.update("DELETE FROM carts");
 		jdbcTemplate.update("DELETE FROM users");
 	}
 
@@ -66,6 +69,17 @@ class AuthControllerTest {
 			Long.class
 		);
 		assertThat(unchangedUsers).isEqualTo(1);
+
+		Long carts = jdbcTemplate.queryForObject(
+			"""
+			SELECT COUNT(*)
+			FROM carts c
+			JOIN users u ON u.id = c.user_id
+			WHERE u.username = 'new_user'
+			""",
+			Long.class
+		);
+		assertThat(carts).isEqualTo(1);
 	}
 
 	@Test

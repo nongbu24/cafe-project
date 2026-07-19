@@ -2,6 +2,7 @@ package com.example.cafe.order.repository;
 
 import static com.example.cafe.menu.entity.QMenu.menu;
 import static com.example.cafe.order.entity.QOrder.order;
+import static com.example.cafe.order.entity.QOrderItem.orderItem;
 
 import com.example.cafe.menu.dto.MenuOrderCount;
 import com.example.cafe.menu.dto.PopularMenuOrderCount;
@@ -33,17 +34,18 @@ public class OrderRepositoryImpl implements OrderRepositoryCustom {
 				menu.id,
 				menu.name,
 				menu.price,
-				order.count()
+				orderItem.quantity.sum().longValue()
 			))
 			.from(order)
-			.join(order.menu, menu)
+			.join(order.items, orderItem)
+			.join(orderItem.menu, menu)
 			.where(
 				order.status.eq(status),
 				order.paidAt.goe(from),
 				order.paidAt.lt(to)
 			)
 			.groupBy(menu.id, menu.name, menu.price)
-			.orderBy(order.count().desc(), menu.id.asc())
+			.orderBy(orderItem.quantity.sum().desc(), menu.id.asc())
 			.offset(pageable.getOffset())
 			.limit(pageable.getPageSize())
 			.fetch();
@@ -58,12 +60,12 @@ public class OrderRepositoryImpl implements OrderRepositoryCustom {
 		return queryFactory
 			.select(Projections.constructor(
 				MenuOrderCount.class,
-				order.menu.id,
-				order.count()
+				orderItem.menu.id,
+				orderItem.quantity.sum().longValue()
 			))
-			.from(order)
-			.where(order.menu.id.in(menuIds))
-			.groupBy(order.menu.id)
+			.from(orderItem)
+			.where(orderItem.menu.id.in(menuIds))
+			.groupBy(orderItem.menu.id)
 			.fetch();
 	}
 }

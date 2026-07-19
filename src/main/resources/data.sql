@@ -113,19 +113,38 @@ INSERT INTO users (username, password, user_status, point_balance, is_deleted, c
 ('user6', '$2y$10$lSOaDS1Xfyg9316q6YW32u.VeFNb.dL17CBI5xsGDJFWJZXJ5d0VC', 'USER', 0, FALSE, CURRENT_TIMESTAMP, NULL),
 ('user7', '$2y$10$lSOaDS1Xfyg9316q6YW32u.VeFNb.dL17CBI5xsGDJFWJZXJ5d0VC', 'USER', 0, FALSE, CURRENT_TIMESTAMP, NULL);
 
+INSERT INTO carts (user_id, created_at, updated_at)
+SELECT id, CURRENT_TIMESTAMP, NULL
+FROM users;
+
 -- 인기 메뉴 API 로컬 확인용 최근 결제 주문 데이터다.
 -- 판매중 메뉴 2개와 품절 메뉴 1개가 집계되도록 주문 수를 다르게 둔다.
-INSERT INTO orders (user_id, menu_id, menu_name, payment_amount, status, paid_at, created_at)
-SELECT u.id, m.id, m.name, m.price, 'PAID', DATEADD('HOUR', -10, CURRENT_TIMESTAMP), CURRENT_TIMESTAMP
+INSERT INTO orders (id, user_id, payment_amount, status, paid_at, created_at)
+SELECT 10000 + X, u.id, m.price, 'PAID', DATEADD('HOUR', -10, CURRENT_TIMESTAMP), CURRENT_TIMESTAMP
 FROM users u, menus m, SYSTEM_RANGE(1, 7)
 WHERE u.username = 'user1' AND m.id = 2;
 
-INSERT INTO orders (user_id, menu_id, menu_name, payment_amount, status, paid_at, created_at)
-SELECT u.id, m.id, m.name, m.price, 'PAID', DATEADD('HOUR', -11, CURRENT_TIMESTAMP), CURRENT_TIMESTAMP
+INSERT INTO order_items (order_id, menu_id, menu_name, unit_price, quantity)
+SELECT 10000 + X, m.id, m.name, m.price, 1
+FROM menus m, SYSTEM_RANGE(1, 7)
+WHERE m.id = 2;
+
+INSERT INTO orders (id, user_id, payment_amount, status, paid_at, created_at)
+SELECT 10100 + X, u.id, m.price, 'PAID', DATEADD('HOUR', -11, CURRENT_TIMESTAMP), CURRENT_TIMESTAMP
 FROM users u, menus m, SYSTEM_RANGE(1, 5)
 WHERE u.username = 'user1' AND m.id = 1;
 
-INSERT INTO orders (user_id, menu_id, menu_name, payment_amount, status, paid_at, created_at)
-SELECT u.id, m.id, m.name, m.price, 'PAID', DATEADD('HOUR', -12, CURRENT_TIMESTAMP), CURRENT_TIMESTAMP
+INSERT INTO order_items (order_id, menu_id, menu_name, unit_price, quantity)
+SELECT 10100 + X, m.id, m.name, m.price, 1
+FROM menus m, SYSTEM_RANGE(1, 5)
+WHERE m.id = 1;
+
+INSERT INTO orders (id, user_id, payment_amount, status, paid_at, created_at)
+SELECT 10200 + X, u.id, m.price, 'PAID', DATEADD('HOUR', -12, CURRENT_TIMESTAMP), CURRENT_TIMESTAMP
 FROM users u, menus m, SYSTEM_RANGE(1, 3)
 WHERE u.username = 'user1' AND m.id = 81;
+
+INSERT INTO order_items (order_id, menu_id, menu_name, unit_price, quantity)
+SELECT 10200 + X, m.id, m.name, m.price, 1
+FROM menus m, SYSTEM_RANGE(1, 3)
+WHERE m.id = 81;

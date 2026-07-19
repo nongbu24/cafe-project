@@ -51,7 +51,10 @@ class AdminMenuControllerTest {
 	void setUp() {
 		jdbcTemplate.update("DELETE FROM order_event_outbox");
 		jdbcTemplate.update("DELETE FROM point_transaction");
+		jdbcTemplate.update("DELETE FROM order_items");
 		jdbcTemplate.update("DELETE FROM orders");
+		jdbcTemplate.update("DELETE FROM cart_items");
+		jdbcTemplate.update("DELETE FROM carts");
 		jdbcTemplate.update("DELETE FROM users");
 		jdbcTemplate.update("DELETE FROM menus WHERE id > 100");
 		jdbcTemplate.update("UPDATE menus SET status = 'AVAILABLE', updated_at = NULL WHERE id <= 80");
@@ -249,17 +252,33 @@ class AdminMenuControllerTest {
 
 	private void insertPaidOrders(long menuId, int count) {
 		for (int i = 0; i < count; i++) {
+			Long orderId = nextOrderId();
 			jdbcTemplate.update(
 				"""
-				INSERT INTO orders (user_id, menu_id, menu_name, payment_amount, status, paid_at, created_at)
-				SELECT ?, id, name, price, 'PAID', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
+				INSERT INTO orders (id, user_id, payment_amount, status, paid_at, created_at)
+				SELECT ?, ?, price, 'PAID', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
 				FROM menus
 				WHERE id = ?
 				""",
+				orderId,
 				USER_ID,
 				menuId
 			);
+			jdbcTemplate.update(
+				"""
+				INSERT INTO order_items (order_id, menu_id, menu_name, unit_price, quantity)
+				SELECT ?, id, name, price, 1
+				FROM menus
+				WHERE id = ?
+				""",
+				orderId,
+				menuId
+			);
 		}
+	}
+
+	private Long nextOrderId() {
+		return jdbcTemplate.queryForObject("SELECT COALESCE(MAX(id), 0) + 1 FROM orders", Long.class);
 	}
 
 	private String bearerToken(long userId) {

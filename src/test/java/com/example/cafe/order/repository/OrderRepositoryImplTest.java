@@ -30,9 +30,12 @@ class OrderRepositoryImplTest {
 	void setUp() {
 		jdbcTemplate.update("DELETE FROM order_event_outbox");
 		jdbcTemplate.update("DELETE FROM point_transaction");
+		jdbcTemplate.update("DELETE FROM order_items");
 		jdbcTemplate.update("DELETE FROM orders");
-		jdbcTemplate.update("DELETE FROM menus");
+		jdbcTemplate.update("DELETE FROM cart_items");
+		jdbcTemplate.update("DELETE FROM carts");
 		jdbcTemplate.update("DELETE FROM users");
+		jdbcTemplate.update("DELETE FROM menus");
 		jdbcTemplate.update(
 			"""
 			INSERT INTO users (id, username, password, user_status, point_balance, is_deleted, created_at, updated_at)
@@ -78,15 +81,27 @@ class OrderRepositoryImplTest {
 	}
 
 	private void insertOrder(long menuId, LocalDateTime paidAt) {
+		Long orderId = jdbcTemplate.queryForObject("SELECT COALESCE(MAX(id), 0) + 1 FROM orders", Long.class);
 		jdbcTemplate.update(
 			"""
-			INSERT INTO orders (user_id, menu_id, menu_name, payment_amount, status, paid_at, created_at)
-			SELECT ?, id, name, price, 'PAID', ?, CURRENT_TIMESTAMP
+			INSERT INTO orders (id, user_id, payment_amount, status, paid_at, created_at)
+			SELECT ?, ?, price, 'PAID', ?, CURRENT_TIMESTAMP
 			FROM menus
 			WHERE id = ?
 			""",
+			orderId,
 			USER_ID,
 			paidAt,
+			menuId
+		);
+		jdbcTemplate.update(
+			"""
+			INSERT INTO order_items (order_id, menu_id, menu_name, unit_price, quantity)
+			SELECT ?, id, name, price, 1
+			FROM menus
+			WHERE id = ?
+			""",
+			orderId,
 			menuId
 		);
 	}

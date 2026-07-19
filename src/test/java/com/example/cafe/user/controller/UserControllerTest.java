@@ -49,7 +49,10 @@ class UserControllerTest {
 	void setUp() {
 		jdbcTemplate.update("DELETE FROM order_event_outbox");
 		jdbcTemplate.update("DELETE FROM point_transaction");
+		jdbcTemplate.update("DELETE FROM order_items");
 		jdbcTemplate.update("DELETE FROM orders");
+		jdbcTemplate.update("DELETE FROM cart_items");
+		jdbcTemplate.update("DELETE FROM carts");
 		jdbcTemplate.update("DELETE FROM users");
 	}
 

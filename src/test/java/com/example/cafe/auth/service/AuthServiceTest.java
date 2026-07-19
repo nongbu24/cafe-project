@@ -8,6 +8,7 @@ import static org.mockito.Mockito.when;
 
 import com.example.cafe.auth.dto.SignupRequest;
 import com.example.cafe.auth.store.TokenBlacklistStore;
+import com.example.cafe.cart.facade.CartFacade;
 import com.example.cafe.common.exception.ApplicationException;
 import com.example.cafe.common.exception.ErrorCode;
 import com.example.cafe.user.entity.User;
@@ -20,9 +21,10 @@ class AuthServiceTest {
 	@Test
 	void 회원가입_저장_중_username_제약_충돌이_발생하면_중복_username_오류로_변환한다() {
 		UserFacade userFacade = mock(UserFacade.class);
+		CartFacade cartFacade = mock(CartFacade.class);
 		TokenBlacklistStore tokenBlacklistStore = mock(TokenBlacklistStore.class);
 		JwtTokenProvider jwtTokenProvider = mock(JwtTokenProvider.class);
-		AuthService authService = new AuthService(userFacade, tokenBlacklistStore, jwtTokenProvider);
+		AuthService authService = new AuthService(userFacade, cartFacade, tokenBlacklistStore, jwtTokenProvider);
 		SignupRequest request = new SignupRequest("same_user", "Cafe1234!");
 		when(userFacade.existsByUsername("same_user")).thenReturn(false);
 		when(userFacade.save(any(User.class))).thenThrow(new DataIntegrityViolationException("duplicate username"));

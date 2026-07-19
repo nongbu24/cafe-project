@@ -26,11 +26,13 @@ class MenuControllerTest {
 
 	@AfterEach
 	void tearDown() {
+		jdbcTemplate.update("DELETE FROM order_items");
 		jdbcTemplate.update("DELETE FROM orders");
 	}
 
 	@Test
 	void 최근_7일간_인기_메뉴_3개를_주문_횟수순으로_조회한다() throws Exception {
+		jdbcTemplate.update("DELETE FROM order_items");
 		jdbcTemplate.update("DELETE FROM orders");
 		prepareOrderUser();
 		insertPaidOrders(2, 4, 1);
@@ -164,17 +166,33 @@ class MenuControllerTest {
 
 	private void insertPaidOrders(long menuId, int count, int daysAgo) {
 		for (int i = 0; i < count; i++) {
+			Long orderId = nextOrderId();
 			jdbcTemplate.update(
 				"""
-				INSERT INTO orders (user_id, menu_id, menu_name, payment_amount, status, paid_at, created_at)
-				SELECT 4, id, name, price, 'PAID', DATEADD('DAY', ?, CURRENT_TIMESTAMP), CURRENT_TIMESTAMP
+				INSERT INTO orders (id, user_id, payment_amount, status, paid_at, created_at)
+				SELECT ?, 4, price, 'PAID', DATEADD('DAY', ?, CURRENT_TIMESTAMP), CURRENT_TIMESTAMP
 				FROM menus
 				WHERE id = ?
 				""",
+				orderId,
 				-daysAgo,
 				menuId
 			);
+			jdbcTemplate.update(
+				"""
+				INSERT INTO order_items (order_id, menu_id, menu_name, unit_price, quantity)
+				SELECT ?, id, name, price, 1
+				FROM menus
+				WHERE id = ?
+				""",
+				orderId,
+				menuId
+			);
 		}
+	}
+
+	private Long nextOrderId() {
+		return jdbcTemplate.queryForObject("SELECT COALESCE(MAX(id), 0) + 1 FROM orders", Long.class);
 	}
 
 	private void prepareOrderUser() {

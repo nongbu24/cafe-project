@@ -29,7 +29,7 @@ public class OrderController {
 		HttpServletRequest httpServletRequest
 	) {
 		long userId = (long) httpServletRequest.getAttribute(AuthenticationInterceptor.AUTHENTICATED_USER_ID);
-		OrderResponse response = orderService.order(userId, request.menuId());
+		OrderResponse response = orderService.order(userId, request);
 
 		return ResponseEntity.created(URI.create("/api/v1/orders/" + response.orderId()))
 			.body(ApiResponse.success("SUCCESS", "주문이 완료되었습니다.", response));

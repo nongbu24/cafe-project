@@ -1,10 +1,13 @@
 package com.example.cafe.order.service;
 
 import com.example.cafe.common.util.DateTimeUtils;
+import com.example.cafe.order.dto.OrderPaidMenuPayload;
 import com.example.cafe.order.dto.OrderPaidEventPayload;
 import com.example.cafe.order.entity.OrderEventOutbox;
 import com.example.cafe.order.repository.OrderEventOutboxRepository;
 import java.time.OffsetDateTime;
+import java.util.ArrayList;
+import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.scheduling.annotation.Async;
@@ -58,11 +61,22 @@ public class MockOrderEventPublisher {
 				payload.path("eventType").asText(),
 				OffsetDateTime.parse(payload.path("occurredAt").asText()),
 				payload.path("userId").asLong(),
-				payload.path("menuId").asLong(),
+				toItems(payload.path("items")),
 				payload.path("paymentAmount").asLong()
 			);
 		} catch (Exception exception) {
 			throw new IllegalStateException("Outbox payload를 전송 형식으로 읽을 수 없습니다.", exception);
 		}
+	}
+
+	private List<OrderPaidMenuPayload> toItems(JsonNode itemsNode) {
+		List<OrderPaidMenuPayload> items = new ArrayList<>();
+		for (JsonNode itemNode : itemsNode) {
+			items.add(new OrderPaidMenuPayload(
+				itemNode.path("menuId").asLong(),
+				itemNode.path("quantity").asInt()
+			));
+		}
+		return items;
 	}
 }

@@ -5,6 +5,7 @@ import com.example.cafe.auth.dto.LoginResponse;
 import com.example.cafe.auth.dto.SignupRequest;
 import com.example.cafe.auth.dto.UserResponse;
 import com.example.cafe.auth.store.TokenBlacklistStore;
+import com.example.cafe.cart.facade.CartFacade;
 import com.example.cafe.common.exception.ApplicationException;
 import com.example.cafe.common.exception.ErrorCode;
 import com.example.cafe.user.entity.User;
@@ -19,16 +20,19 @@ import org.springframework.transaction.annotation.Transactional;
 public class AuthService {
 
 	private final UserFacade userFacade;
+	private final CartFacade cartFacade;
 	private final TokenBlacklistStore tokenBlacklistStore;
 	private final JwtTokenProvider jwtTokenProvider;
 	private final PasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
 
 	public AuthService(
 		UserFacade userFacade,
+		CartFacade cartFacade,
 		TokenBlacklistStore tokenBlacklistStore,
 		JwtTokenProvider jwtTokenProvider
 	) {
 		this.userFacade = userFacade;
+		this.cartFacade = cartFacade;
 		this.tokenBlacklistStore = tokenBlacklistStore;
 		this.jwtTokenProvider = jwtTokenProvider;
 	}
@@ -48,7 +52,9 @@ public class AuthService {
 		User user = User.signup(request.username(), passwordEncoder.encode(request.password()));
 
 		try {
-			return UserResponse.from(userFacade.save(user));
+			User savedUser = userFacade.save(user);
+			cartFacade.createFor(savedUser);
+			return UserResponse.from(savedUser);
 		} catch (DataIntegrityViolationException exception) {
 			throw new ApplicationException(ErrorCode.DUPLICATE_USERNAME);
 		}

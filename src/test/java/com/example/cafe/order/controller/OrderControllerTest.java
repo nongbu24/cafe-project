@@ -48,6 +48,7 @@ class OrderControllerTest {
 	private static final long USER_ID = 1L;
 	private static final long OTHER_USER_ID = 2L;
 	private static final long MENU_ID = 10L;
+	private static final long OTHER_MENU_ID = 11L;
 
 	@Autowired
 	private MockMvc mockMvc;
@@ -69,9 +70,12 @@ class OrderControllerTest {
 		reset(dataCollector);
 		jdbcTemplate.update("DELETE FROM order_event_outbox");
 		jdbcTemplate.update("DELETE FROM point_transaction");
+		jdbcTemplate.update("DELETE FROM order_items");
 		jdbcTemplate.update("DELETE FROM orders");
-		jdbcTemplate.update("DELETE FROM menus");
+		jdbcTemplate.update("DELETE FROM cart_items");
+		jdbcTemplate.update("DELETE FROM carts");
 		jdbcTemplate.update("DELETE FROM users");
+		jdbcTemplate.update("DELETE FROM menus");
 		jdbcTemplate.update(
 			"""
 			INSERT INTO users (id, username, password, user_status, point_balance, is_deleted, created_at, updated_at)
@@ -96,6 +100,14 @@ class OrderControllerTest {
 			MENU_ID,
 			5000
 		);
+		jdbcTemplate.update(
+			"""
+			INSERT INTO menus (id, name, price, status, created_at, updated_at)
+			VALUES (?, '아메리카노', ?, 'AVAILABLE', CURRENT_TIMESTAMP, NULL)
+			""",
+			OTHER_MENU_ID,
+			2000
+		);
 	}
 
 	@Test
@@ -105,17 +117,31 @@ class OrderControllerTest {
 				.contentType(MediaType.APPLICATION_JSON)
 				.content("""
 					{
-					  "menuId": %d
+					  "items": [
+					    {
+					      "menuId": %d,
+					      "quantity": 2
+					    },
+					    {
+					      "menuId": %d,
+					      "quantity": 1
+					    }
+					  ]
 					}
-					""".formatted(MENU_ID)))
+					""".formatted(MENU_ID, OTHER_MENU_ID)))
 			.andExpect(status().isCreated())
 			.andExpect(jsonPath("$.code").value("SUCCESS"))
 			.andExpect(jsonPath("$.message").value("주문이 완료되었습니다."))
 			.andExpect(jsonPath("$.data.userId").value(USER_ID))
-			.andExpect(jsonPath("$.data.menu.menuId").value(MENU_ID))
-			.andExpect(jsonPath("$.data.menu.name").value("카페라테"))
-			.andExpect(jsonPath("$.data.paymentAmount").value(5000))
-			.andExpect(jsonPath("$.data.pointBalance").value(7000))
+			.andExpect(jsonPath("$.data.items[0].menuId").value(MENU_ID))
+			.andExpect(jsonPath("$.data.items[0].name").value("카페라테"))
+			.andExpect(jsonPath("$.data.items[0].unitPrice").value(5000))
+			.andExpect(jsonPath("$.data.items[0].quantity").value(2))
+			.andExpect(jsonPath("$.data.items[0].lineAmount").value(10000))
+			.andExpect(jsonPath("$.data.items[1].menuId").value(OTHER_MENU_ID))
+			.andExpect(jsonPath("$.data.items[1].quantity").value(1))
+			.andExpect(jsonPath("$.data.paymentAmount").value(12000))
+			.andExpect(jsonPath("$.data.pointBalance").value(0))
 			.andExpect(jsonPath("$.data.status").value("PAID"))
 			.andExpect(jsonPath("$.data.paidAt").isNotEmpty())
 			.andReturn();
@@ -124,24 +150,32 @@ class OrderControllerTest {
 		Long eventId = findOnlyOutboxId();
 		assertThat(result.getResponse().getHeader("Location")).isEqualTo("/api/v1/orders/" + orderId);
 		assertThat(result.getResponse().getContentAsString()).contains("\"orderId\":" + orderId);
-		assertThat(findPointBalance()).isEqualTo(7000);
+		assertThat(findPointBalance()).isZero();
 		assertThat(countOrders()).isEqualTo(1);
+		assertThat(countOrderItems()).isEqualTo(2);
 		assertThat(countPaymentTransactions()).isEqualTo(1);
-		assertThat(findPaymentTransactionAmount()).isEqualTo(5000);
+		assertThat(findPaymentTransactionAmount()).isEqualTo(12000);
 		assertThat(findOutboxPayload())
 			.contains("\"eventId\":" + eventId)
 			.contains("\"eventType\":\"ORDER_PAID\"")
 			.contains("\"occurredAt\"")
 			.contains("\"userId\":1")
 			.contains("\"menuId\":10")
-			.contains("\"paymentAmount\":5000");
+			.contains("\"quantity\":2")
+			.contains("\"menuId\":11")
+			.contains("\"quantity\":1")
+			.contains("\"paymentAmount\":12000");
 
 		verify(dataCollector, timeout(1000)).send(argThat(payload ->
 			payload.eventId().equals(eventId)
 				&& payload.occurredAt() != null
 				&& payload.userId() == USER_ID
-				&& payload.menuId() == MENU_ID
-				&& payload.paymentAmount() == 5000
+				&& payload.items().size() == 2
+				&& payload.items().get(0).menuId() == MENU_ID
+				&& payload.items().get(0).quantity() == 2
+				&& payload.items().get(1).menuId() == OTHER_MENU_ID
+				&& payload.items().get(1).quantity() == 1
+				&& payload.paymentAmount() == 12000
 				&& "ORDER_PAID".equals(payload.eventType())
 		));
 		waitForOutboxStatus("SENT");
@@ -156,7 +190,12 @@ class OrderControllerTest {
 				.contentType(MediaType.APPLICATION_JSON)
 				.content("""
 					{
-					  "menuId": %d
+					  "items": [
+					    {
+					      "menuId": %d,
+					      "quantity": 1
+					    }
+					  ]
 					}
 					""".formatted(MENU_ID)))
 			.andExpect(status().isCreated())
@@ -167,7 +206,9 @@ class OrderControllerTest {
 		verify(dataCollector, timeout(1000)).send(argThat(payload ->
 			payload.eventId().equals(eventId)
 				&& payload.userId() == USER_ID
-				&& payload.menuId() == MENU_ID
+				&& payload.items().size() == 1
+				&& payload.items().getFirst().menuId() == MENU_ID
+				&& payload.items().getFirst().quantity() == 1
 				&& payload.paymentAmount() == 5000
 		));
 		assertThat(findPointBalance()).isEqualTo(7000);
@@ -212,7 +253,12 @@ class OrderControllerTest {
 				.content("""
 					{
 					  "userId": %d,
-					  "menuId": %d
+					  "items": [
+					    {
+					      "menuId": %d,
+					      "quantity": 1
+					    }
+					  ]
 					}
 					""".formatted(OTHER_USER_ID, MENU_ID)))
 			.andExpect(status().isCreated())
@@ -235,7 +281,12 @@ class OrderControllerTest {
 				.contentType(MediaType.APPLICATION_JSON)
 				.content("""
 					{
-					  "menuId": %d
+					  "items": [
+					    {
+					      "menuId": %d,
+					      "quantity": 1
+					    }
+					  ]
 					}
 					""".formatted(MENU_ID)))
 			.andExpect(status().isUnauthorized())
@@ -257,7 +308,12 @@ class OrderControllerTest {
 				.contentType(MediaType.APPLICATION_JSON)
 				.content("""
 					{
-					  "menuId": %d
+					  "items": [
+					    {
+					      "menuId": %d,
+					      "quantity": 1
+					    }
+					  ]
 					}
 					""".formatted(MENU_ID)))
 			.andExpect(status().isConflict())
@@ -280,7 +336,12 @@ class OrderControllerTest {
 				.contentType(MediaType.APPLICATION_JSON)
 				.content("""
 					{
-					  "menuId": %d
+					  "items": [
+					    {
+					      "menuId": %d,
+					      "quantity": 1
+					    }
+					  ]
 					}
 					""".formatted(MENU_ID)))
 			.andExpect(status().isConflict())
@@ -303,7 +364,12 @@ class OrderControllerTest {
 				.contentType(MediaType.APPLICATION_JSON)
 				.content("""
 					{
-					  "menuId": %d
+					  "items": [
+					    {
+					      "menuId": %d,
+					      "quantity": 1
+					    }
+					  ]
 					}
 					""".formatted(MENU_ID)))
 			.andExpect(status().isConflict())
@@ -322,7 +388,12 @@ class OrderControllerTest {
 				.contentType(MediaType.APPLICATION_JSON)
 				.content("""
 					{
-					  "menuId": %d
+					  "items": [
+					    {
+					      "menuId": %d,
+					      "quantity": 1
+					    }
+					  ]
 					}
 					""".formatted(MENU_ID)))
 			.andExpect(status().isUnauthorized())
@@ -340,7 +411,12 @@ class OrderControllerTest {
 				.contentType(MediaType.APPLICATION_JSON)
 				.content("""
 					{
-					  "menuId": 9999
+					  "items": [
+					    {
+					      "menuId": 9999,
+					      "quantity": 1
+					    }
+					  ]
 					}
 					"""))
 			.andExpect(status().isNotFound())
@@ -358,7 +434,12 @@ class OrderControllerTest {
 				.contentType(MediaType.APPLICATION_JSON)
 				.content("""
 					{
-					  "menuId": 0
+					  "items": [
+					    {
+					      "menuId": 0,
+					      "quantity": 1
+					    }
+					  ]
 					}
 					"""))
 			.andExpect(status().isBadRequest())
@@ -382,6 +463,13 @@ class OrderControllerTest {
 	private Long countOrders() {
 		return jdbcTemplate.queryForObject(
 			"SELECT COUNT(*) FROM orders",
+			Long.class
+		);
+	}
+
+	private Long countOrderItems() {
+		return jdbcTemplate.queryForObject(
+			"SELECT COUNT(*) FROM order_items",
 			Long.class
 		);
 	}
@@ -453,7 +541,12 @@ class OrderControllerTest {
 				.contentType(MediaType.APPLICATION_JSON)
 				.content("""
 					{
-					  "menuId": %d
+					  "items": [
+					    {
+					      "menuId": %d,
+					      "quantity": 1
+					    }
+					  ]
 					}
 					""".formatted(MENU_ID)))
 			.andReturn()
