@@ -123,8 +123,9 @@ erDiagram
 
 `UK_NULL`은 nullable 유일 키, `FK_UK`는 외래 키이면서 유일 키임을 의미한다.
 
-JWT 블랙리스트는 관계형 DB 테이블이 아니므로 ERD에 포함하지 않는다.
+JWT 블랙리스트와 인기 메뉴 집계 데이터는 관계형 DB 테이블이 아니므로 ERD에 포함하지 않는다.
 로그아웃·회원탈퇴 토큰의 `jti`는 Redis의 `auth:blacklist:{jti}` 키로 저장하고 JWT의 남은 유효시간을 TTL로 사용한다.
+인기 메뉴 집계용 결제 주문 항목은 Redis의 `menu:popular:paid-items` ZSET에 결제 시각을 score로 저장한다.
 
 ## 3. 테이블 정의
 
@@ -287,8 +288,8 @@ JWT 블랙리스트는 관계형 DB 테이블이 아니므로 ERD에 포함하�
 
 | 인덱스 | 대상 컬럼 | 목적 |
 |---|---|---|
-| `idx_orders_status_paid_at` | `orders(status, paid_at)` | 최근 7일 결제 주문 조회 |
-| `idx_order_items_menu_order` | `order_items(menu_id, order_id)` | 최근 7일 결제 주문을 메뉴별로 집계 |
+| `idx_orders_status_paid_at` | `orders(status, paid_at)` | 결제 주문 상태와 시각 기준 조회 |
+| `idx_order_items_menu_order` | `order_items(menu_id, order_id)` | 메뉴별 주문 항목 조회 |
 | `idx_cart_items_cart` | `cart_items(cart_id)` | 장바구니별 항목 조회 |
 | `idx_point_transaction_user_created` | `point_transaction(user_id, created_at)` | 회원별 포인트 이력 조회와 감사 |
 | `idx_point_charge_payment_user_created` | `point_charge_payment(user_id, created_at)` | 회원별 포인트 충전 결제 조회와 감사 |
@@ -298,10 +299,11 @@ JWT 블랙리스트는 관계형 DB 테이블이 아니므로 ERD에 포함하�
 
 - API 요청 처리 중 기준 시각 `asOf`를 한 번 정한다.
 - 집계 구간은 `asOf - 7일` 이상, `asOf` 미만이다. 즉, 직전 168시간이다.
-- `orders.status = 'PAID'`인 주문만 센다.
+- 결제 완료 시 Redis에 기록된 주문 항목만 센다.
 - 주문 항목의 `quantity` 합계를 메뉴별 주문 수로 센다.
 - 메뉴별 주문 횟수 내림차순, 주문 횟수가 같으면 메뉴 ID 오름차순으로 정렬하여 3개를 반환한다.
 - 집계 대상 주문이 3개 메뉴보다 적으면 존재하는 메뉴만 반환한다.
+- 응답의 메뉴 이름과 가격은 현재 `menus` 테이블 값을 사용한다.
 
 DB에는 timezone 없는 `TIMESTAMP` 컬럼에 UTC 기준 `LocalDateTime`을 저장한다.
 API 응답은 저장된 UTC 시각을 한국 시간대로 변환하여 ISO 8601 형식과 offset을 함께 반환한다.

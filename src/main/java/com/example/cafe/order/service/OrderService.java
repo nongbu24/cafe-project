@@ -7,6 +7,7 @@ import com.example.cafe.common.exception.ErrorCode;
 import com.example.cafe.common.util.DateTimeUtils;
 import com.example.cafe.menu.entity.Menu;
 import com.example.cafe.menu.facade.MenuFacade;
+import com.example.cafe.menu.dto.PopularMenuOrderItem;
 import com.example.cafe.order.dto.OrderCreateRequest;
 import com.example.cafe.order.dto.OrderItemResponse;
 import com.example.cafe.order.dto.OrderResponse;
@@ -93,6 +94,7 @@ public class OrderService {
 
 		OrderEventOutbox event = orderEventOutboxRepository.saveAndFlush(OrderEventOutbox.orderPaid(order));
 		event.updatePayload(orderPaidPayload(event, order, user));
+		menuFacade.addPopularMenuPaidOrder(order.getId(), order.getPaidAt(), toPopularMenuOrderItems(order.getItems()));
 		applicationEventPublisher.publishEvent(new OrderPaidOutboxEvent(event.getId()));
 		if (clearCart) {
 			cartFacade.clearFor(user);
@@ -158,6 +160,12 @@ public class OrderService {
 				item.getQuantity(),
 				item.getLineAmount()
 			))
+			.toList();
+	}
+
+	private List<PopularMenuOrderItem> toPopularMenuOrderItems(List<OrderItem> items) {
+		return items.stream()
+			.map(item -> new PopularMenuOrderItem(item.getMenu().getId(), item.getQuantity()))
 			.toList();
 	}
 

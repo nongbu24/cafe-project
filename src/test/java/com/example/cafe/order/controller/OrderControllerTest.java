@@ -3,6 +3,7 @@ package com.example.cafe.order.controller;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.timeout;
@@ -14,6 +15,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.example.cafe.auth.service.JwtTokenProvider;
 import com.example.cafe.auth.store.TokenBlacklistStore;
+import com.example.cafe.menu.store.PopularMenuStore;
 import com.example.cafe.order.dto.OrderPaidEventPayload;
 import com.example.cafe.order.service.MockOrderDataCollector;
 import com.example.cafe.order.service.OrderOutboxRetryService;
@@ -69,9 +71,13 @@ class OrderControllerTest {
 	@MockitoBean
 	private MockOrderDataCollector dataCollector;
 
+	@MockitoBean
+	private PopularMenuStore popularMenuStore;
+
 	@BeforeEach
 	void setUp() {
 		reset(dataCollector);
+		reset(popularMenuStore);
 		jdbcTemplate.update("DELETE FROM order_event_outbox");
 		jdbcTemplate.update("DELETE FROM point_charge_payment");
 		jdbcTemplate.update("DELETE FROM point_transaction");
@@ -178,6 +184,13 @@ class OrderControllerTest {
 				&& payload.items().get(1).quantity() == 1
 				&& payload.paymentAmount() == 12000
 				&& "ORDER_PAID".equals(payload.eventType())
+		));
+		verify(popularMenuStore).addPaidOrder(eq(orderId), any(LocalDateTime.class), argThat(items ->
+			items.size() == 2
+				&& items.get(0).menuId() == MENU_ID
+				&& items.get(0).quantity() == 2
+				&& items.get(1).menuId() == OTHER_MENU_ID
+				&& items.get(1).quantity() == 1
 		));
 		waitForOutboxStatus("SENT");
 	}

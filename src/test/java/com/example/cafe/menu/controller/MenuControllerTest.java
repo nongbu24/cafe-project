@@ -2,16 +2,24 @@ package com.example.cafe.menu.controller;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.hasSize;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.example.cafe.menu.dto.PopularMenuCount;
+import com.example.cafe.menu.store.PopularMenuStore;
+import java.time.LocalDateTime;
+import java.util.List;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 @SpringBootTest
@@ -23,6 +31,9 @@ class MenuControllerTest {
 
 	@Autowired
 	private JdbcTemplate jdbcTemplate;
+
+	@MockitoBean
+	private PopularMenuStore popularMenuStore;
 
 	@AfterEach
 	void tearDown() {
@@ -40,6 +51,12 @@ class MenuControllerTest {
 		insertPaidOrders(3, 3, 1);
 		insertPaidOrders(4, 2, 1);
 		insertPaidOrders(5, 10, 8);
+		when(popularMenuStore.findPopularMenus(any(LocalDateTime.class), any(LocalDateTime.class), eq(3)))
+			.thenReturn(List.of(
+				new PopularMenuCount(2, 4),
+				new PopularMenuCount(1, 3),
+				new PopularMenuCount(3, 3)
+			));
 
 		mockMvc.perform(get("/api/v1/menus/popular"))
 			.andExpect(status().isOk())

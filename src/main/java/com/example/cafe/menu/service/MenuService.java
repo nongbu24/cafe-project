@@ -7,16 +7,16 @@ import com.example.cafe.common.util.DateTimeUtils;
 import com.example.cafe.menu.dto.AdminMenuResponse;
 import com.example.cafe.menu.dto.MenuCreateRequest;
 import com.example.cafe.menu.dto.MenuOrderCount;
+import com.example.cafe.menu.dto.PopularMenuCount;
 import com.example.cafe.menu.dto.MenuResponse;
 import com.example.cafe.menu.dto.MenuStatusUpdateRequest;
 import com.example.cafe.menu.dto.PopularMenuItemResponse;
-import com.example.cafe.menu.dto.PopularMenuOrderCount;
 import com.example.cafe.menu.dto.PopularMenuResponse;
 import com.example.cafe.menu.entity.Menu;
 import com.example.cafe.menu.entity.MenuStatus;
 import com.example.cafe.menu.repository.MenuRepository;
-import com.example.cafe.order.entity.OrderStatus;
 import com.example.cafe.order.facade.OrderFacade;
+import com.example.cafe.menu.store.PopularMenuStore;
 import com.example.cafe.user.entity.User;
 import com.example.cafe.user.entity.UserStatus;
 import com.example.cafe.user.facade.UserFacade;
@@ -44,11 +44,18 @@ public class MenuService {
 	private final MenuRepository menuRepository;
 	private final OrderFacade orderFacade;
 	private final UserFacade userFacade;
+	private final PopularMenuStore popularMenuStore;
 
-	public MenuService(MenuRepository menuRepository, OrderFacade orderFacade, UserFacade userFacade) {
+	public MenuService(
+		MenuRepository menuRepository,
+		OrderFacade orderFacade,
+		UserFacade userFacade,
+		PopularMenuStore popularMenuStore
+	) {
 		this.menuRepository = menuRepository;
 		this.orderFacade = orderFacade;
 		this.userFacade = userFacade;
+		this.popularMenuStore = popularMenuStore;
 	}
 
 	@Transactional(readOnly = true)
@@ -114,12 +121,7 @@ public class MenuService {
 	public PopularMenuResponse getPopularMenus() {
 		LocalDateTime to = DateTimeUtils.utcNow();
 		LocalDateTime from = to.minusDays(POPULAR_MENU_PERIOD_DAYS);
-		List<PopularMenuOrderCount> orderCounts = orderFacade.findPopularMenus(
-			OrderStatus.PAID,
-			from,
-			to,
-			PageRequest.of(0, POPULAR_MENU_LIMIT)
-		);
+		List<PopularMenuCount> orderCounts = popularMenuStore.findPopularMenus(from, to, POPULAR_MENU_LIMIT);
 
 		return new PopularMenuResponse(
 			DateTimeUtils.toKoreaOffsetDateTime(from),
@@ -128,16 +130,25 @@ public class MenuService {
 		);
 	}
 
-	private List<PopularMenuItemResponse> toPopularMenuItems(List<PopularMenuOrderCount> orderCounts) {
+	private List<PopularMenuItemResponse> toPopularMenuItems(List<PopularMenuCount> orderCounts) {
 		List<PopularMenuItemResponse> items = new ArrayList<>();
+		Map<Long, Menu> menus = menuRepository.findAllById(orderCounts.stream()
+				.map(PopularMenuCount::menuId)
+				.toList())
+			.stream()
+			.collect(Collectors.toMap(Menu::getId, menu -> menu));
 
 		for (int index = 0; index < orderCounts.size(); index++) {
-			PopularMenuOrderCount orderCount = orderCounts.get(index);
+			PopularMenuCount orderCount = orderCounts.get(index);
+			Menu menu = menus.get(orderCount.menuId());
+			if (menu == null) {
+				continue;
+			}
 			items.add(new PopularMenuItemResponse(
-				index + 1,
-				orderCount.menuId(),
-				orderCount.name(),
-				orderCount.price()
+				items.size() + 1,
+				menu.getId(),
+				menu.getName(),
+				menu.getPrice()
 			));
 		}
 
