@@ -1,6 +1,7 @@
 package com.example.cafe.cart.entity;
 
 import com.example.cafe.common.entity.BaseEntity;
+import com.example.cafe.menu.entity.Menu;
 import com.example.cafe.user.entity.User;
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Entity;
@@ -51,5 +52,34 @@ public class Cart extends BaseEntity {
 
 	public List<CartItem> getItems() {
 		return List.copyOf(items);
+	}
+
+	public CartItem updateItemQuantity(Menu menu, int quantity) {
+		CartItem item = findItem(menu.getId());
+
+		if (item == null) {
+			item = CartItem.of(this, menu, quantity);
+			items.add(item);
+
+			return item;
+		}
+
+		item.changeQuantity(quantity);
+		return item;
+	}
+
+	public void removeItem(long menuId) {
+		items.removeIf(item -> item.hasMenuId(menuId));
+	}
+
+	public void clear() {
+		items.clear();
+	}
+
+	private CartItem findItem(long menuId) {
+		return items.stream()
+			.filter(item -> item.hasMenuId(menuId))
+			.findFirst()
+			.orElse(null);
 	}
 }

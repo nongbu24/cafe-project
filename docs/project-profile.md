@@ -51,11 +51,11 @@
 | 애플리케이션 설정 | `src/main/resources/application.properties` | `docs/project-profile.md` | 설정 구조나 환경 구분 변경 시 |
 | 로컬 컨테이너 구성 | `docker-compose.yml` | `.env.example`, `docs/project-profile.md` | 서비스, 이미지, 포트, 환경 변수, 볼륨이나 상태 확인 방식 변경 시 |
 | 로컬 초기 데이터 | `src/main/resources/data.sql` | `SeedUserDataTest`, `MenuControllerTest` | 초기 회원·메뉴 데이터 변경 시 |
-| 비즈니스 정책 | `docs/api/auth.md`, `docs/api/menu.md`, `docs/api/point.md`, `docs/api/order.md` | `docs/api/README.md`, `docs/db/ERD.md`, 서비스·엔티티와 통합 테스트 | 인증·포인트·결제·인기 집계 정책 변경 시 |
-| REST 계약 | `docs/api/README.md`, `docs/api/auth.md`, `docs/api/menu.md`, `docs/api/point.md`, `docs/api/order.md` | Controller, DTO와 API 테스트 | REST API 계약 변경 시 |
+| 비즈니스 정책 | `docs/api/auth.md`, `docs/api/menu.md`, `docs/api/cart.md`, `docs/api/point.md`, `docs/api/order.md` | `docs/api/README.md`, `docs/db/ERD.md`, 서비스·엔티티와 통합 테스트 | 인증·장바구니·포인트·결제·인기 집계 정책 변경 시 |
+| REST 계약 | `docs/api/README.md`, `docs/api/auth.md`, `docs/api/menu.md`, `docs/api/cart.md`, `docs/api/point.md`, `docs/api/order.md` | Controller, DTO와 API 테스트 | REST API 계약 변경 시 |
 | WebSocket 계약 | 미정 | 코드와 테스트 | 첫 WebSocket 계약을 구현할 때 지정 |
 | DB 구조 | `docs/db/ERD.md` | Entity, Flyway 마이그레이션과 통합 테스트 | 테이블·컬럼·제약조건·관계·인덱스 변경 시 |
-| 기능의 의도된 동작 | `docs/api/auth.md`, `docs/api/menu.md`, `docs/api/point.md`, `docs/api/order.md` | `docs/api/README.md`, `docs/db/ERD.md`, 애플리케이션 코드와 통합 테스트 | 카페 기능 동작 변경 시 |
+| 기능의 의도된 동작 | `docs/api/auth.md`, `docs/api/menu.md`, `docs/api/cart.md`, `docs/api/point.md`, `docs/api/order.md` | `docs/api/README.md`, `docs/db/ERD.md`, 애플리케이션 코드와 통합 테스트 | 카페 기능 동작 변경 시 |
 | 작업 이력과 검증 증거 | `docs/dev/tasks/`의 각 작업 기록 | 관련 커밋·PR | 일반·보호 작업 수행 시 |
 | 빌드 생성물 | 소스 코드와 `build.gradle` | `build/` | `./gradlew build`로 재생성 |
 
@@ -150,6 +150,7 @@ PostgreSQL datasource는 `postgres` 프로필에서만 활성화하며 `POSTGRES
 - 성공 응답 메시지는 기본적으로 `요청이 성공적으로 처리되었습니다.`를 사용하되, 주문 완료처럼 API 상황에 맞는 문구가 있으면
   해당 API 계약 문서와 테스트에 그 응답 메시지를 명시한다.
 - 오류 응답은 `ErrorResponse`의 `code`, `message` 구조를 사용하며 `data` 필드를 포함하지 않는다.
+- 오류 응답의 `message`는 되도록 영어 변수명을 그대로 노출하지 않고 사용자가 이해할 수 있는 한국어 표현으로 작성한다.
 - 애플리케이션 오류의 HTTP 상태, 응답 코드와 기본 메시지는 `ErrorCode`에서 한곳에 관리한다.
   서비스와 컨트롤러에 같은 오류 코드나 기본 메시지를 문자열로 중복 작성하지 않는다.
 - 비즈니스 규칙이나 요청 값 검증에 실패하면 `ApplicationException`에 알맞은 `ErrorCode`를 전달한다.

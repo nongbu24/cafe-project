@@ -1,6 +1,7 @@
 package com.example.cafe.point.service;
 
 import com.example.cafe.common.exception.ApplicationException;
+import com.example.cafe.common.exception.ErrorCode;
 import com.example.cafe.common.util.DateTimeUtils;
 import com.example.cafe.point.dto.PointChargeResponse;
 import com.example.cafe.point.facade.PointFacade;
@@ -49,7 +50,7 @@ public class PointService {
 
 	private void validate(long userId, long amount) {
 		if (userId < 1) {
-			throw ApplicationException.invalidRequest("userId는 1 이상이어야 합니다.");
+			throw new ApplicationException(ErrorCode.USER_NOT_FOUND);
 		}
 
 		if (amount < 1) {

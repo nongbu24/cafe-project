@@ -1,11 +1,13 @@
 package com.example.cafe.order.service;
 
+import com.example.cafe.cart.facade.CartFacade;
+import com.example.cafe.cart.entity.CartItem;
 import com.example.cafe.common.exception.ApplicationException;
+import com.example.cafe.common.exception.ErrorCode;
 import com.example.cafe.common.util.DateTimeUtils;
 import com.example.cafe.menu.entity.Menu;
 import com.example.cafe.menu.facade.MenuFacade;
 import com.example.cafe.order.dto.OrderCreateRequest;
-import com.example.cafe.order.dto.OrderItemCreateRequest;
 import com.example.cafe.order.dto.OrderItemResponse;
 import com.example.cafe.order.dto.OrderResponse;
 import com.example.cafe.order.entity.Order;
@@ -17,10 +19,7 @@ import com.example.cafe.point.facade.PointFacade;
 import com.example.cafe.user.entity.User;
 import com.example.cafe.user.facade.UserFacade;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -32,6 +31,7 @@ public class OrderService {
 	private final MenuFacade menuFacade;
 	private final OrderRepository orderRepository;
 	private final PointFacade pointFacade;
+	private final CartFacade cartFacade;
 	private final OrderEventOutboxRepository orderEventOutboxRepository;
 	private final ApplicationEventPublisher applicationEventPublisher;
 
@@ -40,6 +40,7 @@ public class OrderService {
 		MenuFacade menuFacade,
 		OrderRepository orderRepository,
 		PointFacade pointFacade,
+		CartFacade cartFacade,
 		OrderEventOutboxRepository orderEventOutboxRepository,
 		ApplicationEventPublisher applicationEventPublisher
 	) {
@@ -47,16 +48,35 @@ public class OrderService {
 		this.menuFacade = menuFacade;
 		this.orderRepository = orderRepository;
 		this.pointFacade = pointFacade;
+		this.cartFacade = cartFacade;
 		this.orderEventOutboxRepository = orderEventOutboxRepository;
 		this.applicationEventPublisher = applicationEventPublisher;
 	}
 
 	@Transactional
 	public OrderResponse order(long userId, OrderCreateRequest request) {
-		validate(userId, request);
+		validateImmediateOrder(userId, request);
 
 		User user = userFacade.getActiveUserForUpdate(userId);
-		List<OrderItem> items = createOrderItems(request);
+		Menu menu = menuFacade.getOrderableMenu(request.menuId());
+		List<OrderItem> items = List.of(OrderItem.of(menu, request.quantity()));
+
+		return pay(user, items, false);
+	}
+
+	@Transactional
+	public OrderResponse orderFromCart(long userId) {
+		User user = userFacade.getActiveUserForUpdate(userId);
+		List<OrderItem> items = createOrderItemsFromCart(user);
+
+		if (items.isEmpty()) {
+			throw ApplicationException.invalidRequest("장바구니에 담긴 메뉴가 없습니다.");
+		}
+
+		return pay(user, items, true);
+	}
+
+	private OrderResponse pay(User user, List<OrderItem> items, boolean clearCart) {
 		long paymentAmount = calculatePaymentAmount(items);
 
 		LocalDateTime paidAt = DateTimeUtils.utcNow();
@@ -74,6 +94,9 @@ public class OrderService {
 		OrderEventOutbox event = orderEventOutboxRepository.saveAndFlush(OrderEventOutbox.orderPaid(order));
 		event.updatePayload(orderPaidPayload(event, order, user));
 		applicationEventPublisher.publishEvent(new OrderPaidOutboxEvent(event.getId()));
+		if (clearCart) {
+			cartFacade.clearFor(user);
+		}
 
 		return new OrderResponse(
 			order.getId(),
@@ -86,51 +109,32 @@ public class OrderService {
 		);
 	}
 
-	private void validate(long userId, OrderCreateRequest request) {
+	private void validateImmediateOrder(long userId, OrderCreateRequest request) {
 		if (userId < 1) {
-			throw ApplicationException.invalidRequest("userId는 1 이상이어야 합니다.");
+			throw new ApplicationException(ErrorCode.USER_NOT_FOUND);
 		}
 
-		if (request == null || request.items() == null || request.items().isEmpty()) {
-			throw ApplicationException.invalidRequest("주문 항목은 1개 이상이어야 합니다.");
+		if (request == null) {
+			throw ApplicationException.invalidRequest();
 		}
 
-		for (OrderItemCreateRequest item : request.items()) {
-			if (item == null) {
-				throw ApplicationException.invalidRequest("주문 항목은 비어 있을 수 없습니다.");
-			}
+		if (request.menuId() < 1) {
+			throw new ApplicationException(ErrorCode.MENU_NOT_FOUND);
+		}
 
-			if (item.menuId() < 1) {
-				throw ApplicationException.invalidRequest("menuId는 1 이상이어야 합니다.");
-			}
-
-			if (item.quantity() < 1) {
-				throw ApplicationException.invalidRequest("주문 항목은 1개 이상이어야 합니다.");
-			}
+		if (request.quantity() < 1) {
+			throw ApplicationException.invalidRequest("주문 수량은 1개 이상이어야 합니다.");
 		}
 	}
 
-	private List<OrderItem> createOrderItems(OrderCreateRequest request) {
-		Map<Long, Integer> quantitiesByMenuId = new LinkedHashMap<>();
-		for (OrderItemCreateRequest item : request.items()) {
-			quantitiesByMenuId.merge(item.menuId(), item.quantity(), this::addQuantity);
-		}
-
-		List<OrderItem> items = new ArrayList<>();
-		for (Map.Entry<Long, Integer> entry : quantitiesByMenuId.entrySet()) {
-			Menu menu = menuFacade.getOrderableMenu(entry.getKey());
-			items.add(OrderItem.of(menu, entry.getValue()));
-		}
-
-		return items;
+	private List<OrderItem> createOrderItemsFromCart(User user) {
+		return cartFacade.getItems(user).stream()
+			.map(this::toOrderItem)
+			.toList();
 	}
 
-	private int addQuantity(int current, int added) {
-		try {
-			return Math.addExact(current, added);
-		} catch (ArithmeticException exception) {
-			throw ApplicationException.invalidRequest("주문 수량이 허용 범위를 초과합니다.");
-		}
+	private OrderItem toOrderItem(CartItem item) {
+		return OrderItem.of(menuFacade.getOrderableMenu(item.getMenu().getId()), item.getQuantity());
 	}
 
 	private long calculatePaymentAmount(List<OrderItem> items) {

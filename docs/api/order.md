@@ -3,9 +3,9 @@
 주문 도메인의 REST API 계약이다.
 공통 규칙과 오류 형식은 [`README.md`](README.md)를 따른다.
 
-## 메뉴 주문 및 결제
+## 즉시 메뉴 주문 및 결제
 
-로그인한 사용자가 여러 메뉴와 수량을 한 번에 주문하고, 로그인한 사용자의 포인트에서 총 주문 금액만큼 차감한다.
+로그인한 사용자가 메뉴 하나와 수량을 바로 주문하고, 로그인한 사용자의 포인트에서 주문 금액만큼 차감한다.
 클라이언트는 주문할 회원 ID를 요청 본문으로 전달하지 않는다.
 
 ### 요청
@@ -18,27 +18,18 @@ Content-Type: application/json
 
 ```json
 {
-  "items": [
-    {
-      "menuId": 2,
-      "quantity": 2
-    },
-    {
-      "menuId": 3,
-      "quantity": 1
-    }
-  ]
+  "menuId": 2,
+  "quantity": 2
 }
 ```
 
 | 필드 | 타입 | 필수 | 제약조건 | 설명 |
 |---|---|---|---|---|
-| `items` | array | O | 1개 이상 | 주문할 메뉴 항목 목록 |
-| `items[].menuId` | long | O | 1 이상 | 주문할 메뉴 식별값 |
-| `items[].quantity` | int | O | 1 이상 | 주문 수량 |
+| `menuId` | long | O | 1 이상 | 주문할 메뉴 식별값 |
+| `quantity` | int | O | 1 이상 | 주문 수량 |
 
 주문 사용자 식별값은 JWT 인증 결과에서만 사용한다. 요청 본문에 `userId`가 포함되어도 주문 주체로 사용하지 않는다.
-같은 `menuId`가 요청에 여러 번 포함되면 서버는 수량을 합산해 하나의 주문 항목으로 저장한다.
+한 번에 여러 메뉴를 주문하려면 장바구니에 항목을 담은 뒤 장바구니 주문 API를 사용한다.
 
 ### 성공 응답
 
@@ -101,7 +92,7 @@ Location: /api/v1/orders/1001
 
 | HTTP 상태 | 오류 코드 | 발생 조건 |
 |---|---|---|
-| `400 Bad Request` | `INVALID_REQUEST` | 주문 항목이 비어 있거나 메뉴 식별값·수량이 형식 또는 범위를 벗어남 |
+| `400 Bad Request` | `INVALID_REQUEST` | 수량이 형식 또는 범위를 벗어남 |
 | `401 Unauthorized` | `AUTHENTICATION_REQUIRED` | Authorization 헤더가 없거나 Bearer 토큰 형식이 아님 |
 | `401 Unauthorized` | `INVALID_TOKEN` | 토큰이 유효하지 않거나 토큰의 사용자가 존재하지 않거나 탈퇴 상태임 |
 | `401 Unauthorized` | `BLACKLISTED_TOKEN` | 로그아웃되어 사용할 수 없는 토큰으로 요청함 |
@@ -113,15 +104,47 @@ Location: /api/v1/orders/1001
 
 다음 처리는 하나의 DB 트랜잭션으로 실행한다.
 
-1. JWT에서 인증된 회원과 주문 가능한 메뉴들을 조회한다. 메뉴 상태가 `AVAILABLE`이 아니면 주문하지 못한다.
-2. 주문 항목별 금액과 총 주문 금액을 계산한다.
-3. 회원의 현재 포인트가 총 주문 금액 이상인지 확인한다.
-4. 포인트에서 총 주문 금액을 차감한다.
+1. JWT에서 인증된 회원과 주문 가능한 메뉴를 조회한다. 메뉴 상태가 `AVAILABLE`이 아니면 주문하지 못한다.
+2. 주문 금액을 계산한다.
+3. 회원의 현재 포인트가 주문 금액 이상인지 확인한다.
+4. 포인트에서 주문 금액을 차감한다.
 5. `PAID` 주문, 주문 항목들과 `PAYMENT` 포인트 거래를 저장한다.
 6. `ORDER_PAID` Outbox 이벤트를 저장한다.
 
 같은 회원의 결제 요청이 동시에 들어와 잔액보다 많은 포인트가 사용되지 않도록 회원 행을 비관적 쓰기 잠금으로 조회한다.
 어느 한 단계라도 실패하면 전체 트랜잭션을 롤백한다.
+
+## 장바구니 주문 및 결제
+
+로그인한 사용자의 장바구니에 담긴 모든 항목을 주문하고 결제한다.
+요청 본문 없이 장바구니의 현재 항목을 기준으로 주문한다.
+
+### 요청
+
+```http
+POST /api/v1/orders/from-cart
+Authorization: Bearer {accessToken}
+```
+
+요청 본문은 없다.
+
+### 성공 응답
+
+즉시 주문과 같은 응답 구조를 사용한다. 주문이 완료되면 해당 회원의 장바구니 항목 전체를 삭제한다.
+
+### 오류 응답
+
+| HTTP 상태 | 오류 코드 | 발생 조건 |
+|---|---|---|
+| `400 Bad Request` | `INVALID_REQUEST` | 장바구니에 담긴 메뉴가 없음 |
+| `401 Unauthorized` | `AUTHENTICATION_REQUIRED` | Authorization 헤더가 없거나 Bearer 토큰 형식이 아님 |
+| `401 Unauthorized` | `INVALID_TOKEN` | 토큰이 유효하지 않거나 토큰의 사용자가 존재하지 않거나 탈퇴 상태임 |
+| `401 Unauthorized` | `BLACKLISTED_TOKEN` | 로그아웃되어 사용할 수 없는 토큰으로 요청함 |
+| `404 Not Found` | `MENU_NOT_FOUND` | 장바구니에 담긴 메뉴가 존재하지 않음 |
+| `409 Conflict` | `MENU_NOT_AVAILABLE` | 장바구니에 담긴 메뉴가 품절 또는 단종 상태라 주문할 수 없음 |
+| `409 Conflict` | `INSUFFICIENT_POINTS` | 사용자의 포인트가 총 주문 금액보다 적음 |
+
+주문 생성 중 실패하면 장바구니는 변경하지 않는다.
 
 ## 데이터 수집 플랫폼 전송
 

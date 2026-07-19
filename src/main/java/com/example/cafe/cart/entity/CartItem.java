@@ -34,6 +34,16 @@ public class CartItem extends BaseEntity {
 	protected CartItem() {
 	}
 
+	private CartItem(Cart cart, Menu menu, int quantity) {
+		this.cart = cart;
+		this.menu = menu;
+		this.quantity = quantity;
+	}
+
+	public static CartItem of(Cart cart, Menu menu, int quantity) {
+		return new CartItem(cart, menu, quantity);
+	}
+
 	public Long getId() {
 		return id;
 	}
@@ -48,5 +58,13 @@ public class CartItem extends BaseEntity {
 
 	public int getQuantity() {
 		return quantity;
+	}
+
+	void changeQuantity(int quantity) {
+		this.quantity = quantity;
+	}
+
+	boolean hasMenuId(long menuId) {
+		return menu.getId() == menuId;
 	}
 }

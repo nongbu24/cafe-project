@@ -94,6 +94,13 @@ class OrderControllerTest {
 		);
 		jdbcTemplate.update(
 			"""
+			INSERT INTO carts (id, user_id, created_at, updated_at)
+			VALUES (100, ?, CURRENT_TIMESTAMP, NULL)
+			""",
+			USER_ID
+		);
+		jdbcTemplate.update(
+			"""
 			INSERT INTO menus (id, name, price, status, created_at, updated_at)
 			VALUES (?, '카페라테', ?, 'AVAILABLE', CURRENT_TIMESTAMP, NULL)
 			""",
@@ -111,24 +118,12 @@ class OrderControllerTest {
 	}
 
 	@Test
-	void 사용자와_메뉴로_주문하고_포인트로_결제한다() throws Exception {
-		MvcResult result = mockMvc.perform(post("/api/v1/orders")
-				.header("Authorization", bearerToken())
-				.contentType(MediaType.APPLICATION_JSON)
-				.content("""
-					{
-					  "items": [
-					    {
-					      "menuId": %d,
-					      "quantity": 2
-					    },
-					    {
-					      "menuId": %d,
-					      "quantity": 1
-					    }
-					  ]
-					}
-					""".formatted(MENU_ID, OTHER_MENU_ID)))
+	void 장바구니에_담긴_메뉴들로_주문하고_포인트로_결제한다() throws Exception {
+		insertCartItem(MENU_ID, 2);
+		insertCartItem(OTHER_MENU_ID, 1);
+
+		MvcResult result = mockMvc.perform(post("/api/v1/orders/from-cart")
+				.header("Authorization", bearerToken()))
 			.andExpect(status().isCreated())
 			.andExpect(jsonPath("$.code").value("SUCCESS"))
 			.andExpect(jsonPath("$.message").value("주문이 완료되었습니다."))
@@ -154,6 +149,7 @@ class OrderControllerTest {
 		assertThat(countOrders()).isEqualTo(1);
 		assertThat(countOrderItems()).isEqualTo(2);
 		assertThat(countPaymentTransactions()).isEqualTo(1);
+		assertThat(countCartItems()).isZero();
 		assertThat(findPaymentTransactionAmount()).isEqualTo(12000);
 		assertThat(findOutboxPayload())
 			.contains("\"eventId\":" + eventId)
@@ -182,22 +178,46 @@ class OrderControllerTest {
 	}
 
 	@Test
+	void 즉시_주문은_메뉴_하나와_수량으로_결제하고_장바구니를_비우지_않는다() throws Exception {
+		insertCartItem(OTHER_MENU_ID, 1);
+
+		mockMvc.perform(post("/api/v1/orders")
+				.header("Authorization", bearerToken())
+				.contentType(MediaType.APPLICATION_JSON)
+				.content(orderContent(MENU_ID, 2)))
+			.andExpect(status().isCreated())
+			.andExpect(jsonPath("$.data.items[0].menuId").value(MENU_ID))
+			.andExpect(jsonPath("$.data.items[0].quantity").value(2))
+			.andExpect(jsonPath("$.data.paymentAmount").value(10000))
+			.andExpect(jsonPath("$.data.pointBalance").value(2000));
+
+		assertThat(countOrders()).isEqualTo(1);
+		assertThat(countOrderItems()).isEqualTo(1);
+		assertThat(countCartItems()).isEqualTo(1);
+		waitForOutboxStatus("SENT");
+	}
+
+	@Test
+	void 빈_장바구니로는_주문할_수_없다() throws Exception {
+		mockMvc.perform(post("/api/v1/orders/from-cart")
+				.header("Authorization", bearerToken()))
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.code").value("INVALID_REQUEST"))
+			.andExpect(jsonPath("$.message").value("장바구니에 담긴 메뉴가 없습니다."))
+			.andExpect(jsonPath("$.data").doesNotExist());
+
+		assertThat(countOrders()).isZero();
+		verifyNoInteractions(dataCollector);
+	}
+
+	@Test
 	void Outbox_전송에_실패해도_주문_응답과_결제는_성공하고_전송_대기로_남긴다() throws Exception {
 		doThrow(new RuntimeException("collector down")).when(dataCollector).send(any(OrderPaidEventPayload.class));
 
 		mockMvc.perform(post("/api/v1/orders")
 				.header("Authorization", bearerToken())
 				.contentType(MediaType.APPLICATION_JSON)
-				.content("""
-					{
-					  "items": [
-					    {
-					      "menuId": %d,
-					      "quantity": 1
-					    }
-					  ]
-					}
-					""".formatted(MENU_ID)))
+				.content(orderContent(MENU_ID, 1)))
 			.andExpect(status().isCreated())
 			.andExpect(jsonPath("$.data.userId").value(USER_ID))
 			.andExpect(jsonPath("$.data.pointBalance").value(7000));
@@ -253,12 +273,8 @@ class OrderControllerTest {
 				.content("""
 					{
 					  "userId": %d,
-					  "items": [
-					    {
-					      "menuId": %d,
-					      "quantity": 1
-					    }
-					  ]
+					  "menuId": %d,
+					  "quantity": 1
 					}
 					""".formatted(OTHER_USER_ID, MENU_ID)))
 			.andExpect(status().isCreated())
@@ -279,16 +295,7 @@ class OrderControllerTest {
 		mockMvc.perform(post("/api/v1/orders")
 				.header("Authorization", token)
 				.contentType(MediaType.APPLICATION_JSON)
-				.content("""
-					{
-					  "items": [
-					    {
-					      "menuId": %d,
-					      "quantity": 1
-					    }
-					  ]
-					}
-					""".formatted(MENU_ID)))
+				.content(orderContent(MENU_ID, 1)))
 			.andExpect(status().isUnauthorized())
 			.andExpect(jsonPath("$.code").value("INVALID_TOKEN"))
 			.andExpect(jsonPath("$.data").doesNotExist());
@@ -302,20 +309,12 @@ class OrderControllerTest {
 	@Test
 	void 포인트가_부족하면_409를_반환하고_주문하지_않는다() throws Exception {
 		jdbcTemplate.update("UPDATE users SET point_balance = 1000 WHERE id = ?", USER_ID);
+		insertCartItem(MENU_ID, 1);
 
 		mockMvc.perform(post("/api/v1/orders")
 				.header("Authorization", bearerToken())
 				.contentType(MediaType.APPLICATION_JSON)
-				.content("""
-					{
-					  "items": [
-					    {
-					      "menuId": %d,
-					      "quantity": 1
-					    }
-					  ]
-					}
-					""".formatted(MENU_ID)))
+				.content(orderContent(MENU_ID, 1)))
 			.andExpect(status().isConflict())
 			.andExpect(jsonPath("$.code").value("INSUFFICIENT_POINTS"))
 			.andExpect(jsonPath("$.message").value("포인트 잔액이 부족합니다."))
@@ -324,6 +323,7 @@ class OrderControllerTest {
 		assertThat(findPointBalance()).isEqualTo(1000);
 		assertThat(countOrders()).isZero();
 		assertThat(countPaymentTransactions()).isZero();
+		assertThat(countCartItems()).isEqualTo(1);
 		verifyNoInteractions(dataCollector);
 	}
 
@@ -334,16 +334,7 @@ class OrderControllerTest {
 		mockMvc.perform(post("/api/v1/orders")
 				.header("Authorization", bearerToken())
 				.contentType(MediaType.APPLICATION_JSON)
-				.content("""
-					{
-					  "items": [
-					    {
-					      "menuId": %d,
-					      "quantity": 1
-					    }
-					  ]
-					}
-					""".formatted(MENU_ID)))
+				.content(orderContent(MENU_ID, 1)))
 			.andExpect(status().isConflict())
 			.andExpect(jsonPath("$.code").value("MENU_NOT_AVAILABLE"))
 			.andExpect(jsonPath("$.message").value("주문할 수 없는 메뉴입니다."))
@@ -362,16 +353,7 @@ class OrderControllerTest {
 		mockMvc.perform(post("/api/v1/orders")
 				.header("Authorization", bearerToken())
 				.contentType(MediaType.APPLICATION_JSON)
-				.content("""
-					{
-					  "items": [
-					    {
-					      "menuId": %d,
-					      "quantity": 1
-					    }
-					  ]
-					}
-					""".formatted(MENU_ID)))
+				.content(orderContent(MENU_ID, 1)))
 			.andExpect(status().isConflict())
 			.andExpect(jsonPath("$.code").value("MENU_NOT_AVAILABLE"))
 			.andExpect(jsonPath("$.data").doesNotExist());
@@ -386,16 +368,7 @@ class OrderControllerTest {
 	void 인증하지_않으면_주문할_수_없다() throws Exception {
 		mockMvc.perform(post("/api/v1/orders")
 				.contentType(MediaType.APPLICATION_JSON)
-				.content("""
-					{
-					  "items": [
-					    {
-					      "menuId": %d,
-					      "quantity": 1
-					    }
-					  ]
-					}
-					""".formatted(MENU_ID)))
+				.content(orderContent(MENU_ID, 1)))
 			.andExpect(status().isUnauthorized())
 			.andExpect(jsonPath("$.code").value("AUTHENTICATION_REQUIRED"))
 			.andExpect(jsonPath("$.data").doesNotExist());
@@ -411,12 +384,8 @@ class OrderControllerTest {
 				.contentType(MediaType.APPLICATION_JSON)
 				.content("""
 					{
-					  "items": [
-					    {
-					      "menuId": 9999,
-					      "quantity": 1
-					    }
-					  ]
+					  "menuId": 9999,
+					  "quantity": 1
 					}
 					"""))
 			.andExpect(status().isNotFound())
@@ -428,23 +397,19 @@ class OrderControllerTest {
 	}
 
 	@Test
-	void 메뉴_식별값이_0이면_400을_반환한다() throws Exception {
+	void 메뉴_식별값이_0이면_존재하지_않는_메뉴_오류를_반환한다() throws Exception {
 		mockMvc.perform(post("/api/v1/orders")
 				.header("Authorization", bearerToken())
 				.contentType(MediaType.APPLICATION_JSON)
 				.content("""
 					{
-					  "items": [
-					    {
-					      "menuId": 0,
-					      "quantity": 1
-					    }
-					  ]
+					  "menuId": 0,
+					  "quantity": 1
 					}
 					"""))
-			.andExpect(status().isBadRequest())
-			.andExpect(jsonPath("$.code").value("INVALID_REQUEST"))
-			.andExpect(jsonPath("$.message").value("menuId는 1 이상이어야 합니다."))
+			.andExpect(status().isNotFound())
+			.andExpect(jsonPath("$.code").value("MENU_NOT_FOUND"))
+			.andExpect(jsonPath("$.message").value("메뉴를 찾을 수 없습니다."))
 			.andExpect(jsonPath("$.data").doesNotExist());
 	}
 
@@ -478,6 +443,24 @@ class OrderControllerTest {
 		return jdbcTemplate.queryForObject(
 			"SELECT COUNT(*) FROM point_transaction WHERE type = 'PAYMENT'",
 			Long.class
+		);
+	}
+
+	private Long countCartItems() {
+		return jdbcTemplate.queryForObject(
+			"SELECT COUNT(*) FROM cart_items WHERE cart_id = 100",
+			Long.class
+		);
+	}
+
+	private void insertCartItem(long menuId, int quantity) {
+		jdbcTemplate.update(
+			"""
+			INSERT INTO cart_items (cart_id, menu_id, quantity, created_at, updated_at)
+			VALUES (100, ?, ?, CURRENT_TIMESTAMP, NULL)
+			""",
+			menuId,
+			quantity
 		);
 	}
 
@@ -539,19 +522,19 @@ class OrderControllerTest {
 		return mockMvc.perform(post("/api/v1/orders")
 				.header("Authorization", token)
 				.contentType(MediaType.APPLICATION_JSON)
-				.content("""
-					{
-					  "items": [
-					    {
-					      "menuId": %d,
-					      "quantity": 1
-					    }
-					  ]
-					}
-					""".formatted(MENU_ID)))
+				.content(orderContent(MENU_ID, 1)))
 			.andReturn()
 			.getResponse()
 			.getStatus();
+	}
+
+	private String orderContent(long menuId, int quantity) {
+		return """
+			{
+			  "menuId": %d,
+			  "quantity": %d
+			}
+			""".formatted(menuId, quantity);
 	}
 
 	private void waitForOutboxStatus(String expectedStatus) throws InterruptedException {
