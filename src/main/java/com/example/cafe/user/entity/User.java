@@ -81,6 +81,10 @@ public class User extends BaseEntity {
 		deleted = true;
 	}
 
+	public void changePassword(String encodedPassword) {
+		password = encodedPassword;
+	}
+
 	public void charge(long amount) {
 		try {
 			pointBalance = Math.addExact(pointBalance, amount);
