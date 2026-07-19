@@ -17,7 +17,7 @@ import com.example.cafe.auth.service.JwtTokenProvider;
 import com.example.cafe.auth.store.TokenBlacklistStore;
 import com.example.cafe.menu.store.PopularMenuStore;
 import com.example.cafe.order.dto.OrderPaidEventPayload;
-import com.example.cafe.order.service.MockOrderDataCollector;
+import com.example.cafe.order.service.OrderPaidKafkaProducer;
 import com.example.cafe.order.service.OrderOutboxRetryService;
 import com.example.cafe.user.entity.User;
 import com.example.cafe.user.repository.UserRepository;
@@ -69,14 +69,14 @@ class OrderControllerTest {
 	private OrderOutboxRetryService orderOutboxRetryService;
 
 	@MockitoBean
-	private MockOrderDataCollector dataCollector;
+	private OrderPaidKafkaProducer orderPaidKafkaProducer;
 
 	@MockitoBean
 	private PopularMenuStore popularMenuStore;
 
 	@BeforeEach
 	void setUp() {
-		reset(dataCollector);
+		reset(orderPaidKafkaProducer);
 		reset(popularMenuStore);
 		jdbcTemplate.update("DELETE FROM order_event_outbox");
 		jdbcTemplate.update("DELETE FROM point_charge_payment");
@@ -173,7 +173,7 @@ class OrderControllerTest {
 			.contains("\"quantity\":1")
 			.contains("\"paymentAmount\":12000");
 
-		verify(dataCollector, timeout(1000)).send(argThat(payload ->
+		verify(orderPaidKafkaProducer, timeout(1000)).send(argThat(payload ->
 			payload.eventId().equals(eventId)
 				&& payload.occurredAt() != null
 				&& payload.userId() == USER_ID
@@ -225,12 +225,12 @@ class OrderControllerTest {
 			.andExpect(jsonPath("$.data").doesNotExist());
 
 		assertThat(countOrders()).isZero();
-		verifyNoInteractions(dataCollector);
+		verifyNoInteractions(orderPaidKafkaProducer);
 	}
 
 	@Test
 	void Outbox_전송에_실패해도_주문_응답과_결제는_성공하고_전송_대기로_남긴다() throws Exception {
-		doThrow(new RuntimeException("collector down")).when(dataCollector).send(any(OrderPaidEventPayload.class));
+		doThrow(new RuntimeException("kafka down")).when(orderPaidKafkaProducer).send(any(OrderPaidEventPayload.class));
 
 		mockMvc.perform(post("/api/v1/orders")
 				.header("Authorization", bearerToken())
@@ -241,7 +241,7 @@ class OrderControllerTest {
 			.andExpect(jsonPath("$.data.pointBalance").value(7000));
 
 		Long eventId = findOnlyOutboxId();
-		verify(dataCollector, timeout(1000)).send(argThat(payload ->
+		verify(orderPaidKafkaProducer, timeout(1000)).send(argThat(payload ->
 			payload.eventId().equals(eventId)
 				&& payload.userId() == USER_ID
 				&& payload.items().size() == 1
@@ -260,9 +260,9 @@ class OrderControllerTest {
 
 	@Test
 	void Outbox_전송에_실패한_이벤트는_재시도_시각이_되면_다시_전송한다() throws Exception {
-		doThrow(new RuntimeException("collector down"))
+		doThrow(new RuntimeException("kafka down"))
 			.doNothing()
-			.when(dataCollector)
+			.when(orderPaidKafkaProducer)
 			.send(any(OrderPaidEventPayload.class));
 
 		mockMvc.perform(post("/api/v1/orders")
@@ -283,7 +283,7 @@ class OrderControllerTest {
 
 		orderOutboxRetryService.resendDueEvents();
 
-		verify(dataCollector, timeout(1000).times(2)).send(argThat(payload ->
+		verify(orderPaidKafkaProducer, timeout(1000).times(2)).send(argThat(payload ->
 			payload.eventId().equals(eventId)
 				&& payload.userId() == USER_ID
 				&& payload.items().size() == 1
@@ -361,7 +361,7 @@ class OrderControllerTest {
 		assertThat(findPointBalance()).isEqualTo(12000);
 		assertThat(countOrders()).isZero();
 		assertThat(countPaymentTransactions()).isZero();
-		verifyNoInteractions(dataCollector);
+		verifyNoInteractions(orderPaidKafkaProducer);
 	}
 
 	@Test
@@ -382,7 +382,7 @@ class OrderControllerTest {
 		assertThat(countOrders()).isZero();
 		assertThat(countPaymentTransactions()).isZero();
 		assertThat(countCartItems()).isEqualTo(1);
-		verifyNoInteractions(dataCollector);
+		verifyNoInteractions(orderPaidKafkaProducer);
 	}
 
 	@Test
@@ -401,7 +401,7 @@ class OrderControllerTest {
 		assertThat(findPointBalance()).isEqualTo(12000);
 		assertThat(countOrders()).isZero();
 		assertThat(countPaymentTransactions()).isZero();
-		verifyNoInteractions(dataCollector);
+		verifyNoInteractions(orderPaidKafkaProducer);
 	}
 
 	@Test
@@ -419,7 +419,7 @@ class OrderControllerTest {
 		assertThat(findPointBalance()).isEqualTo(12000);
 		assertThat(countOrders()).isZero();
 		assertThat(countPaymentTransactions()).isZero();
-		verifyNoInteractions(dataCollector);
+		verifyNoInteractions(orderPaidKafkaProducer);
 	}
 
 	@Test
@@ -432,7 +432,7 @@ class OrderControllerTest {
 			.andExpect(jsonPath("$.data").doesNotExist());
 
 		assertThat(countOrders()).isZero();
-		verifyNoInteractions(dataCollector);
+		verifyNoInteractions(orderPaidKafkaProducer);
 	}
 
 	@Test
@@ -451,7 +451,7 @@ class OrderControllerTest {
 			.andExpect(jsonPath("$.data").doesNotExist());
 
 		assertThat(countOrders()).isZero();
-		verifyNoInteractions(dataCollector);
+		verifyNoInteractions(orderPaidKafkaProducer);
 	}
 
 	@Test

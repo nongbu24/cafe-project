@@ -148,9 +148,10 @@ Authorization: Bearer {accessToken}
 
 ## 데이터 수집 플랫폼 전송
 
-주문 트랜잭션이 커밋되면 Outbox 이벤트를 가능한 즉시 비동기로 전송한다.
-`order_event_outbox.payload`에는 외부 플랫폼으로 전송할 원본 JSON을 저장한다.
-저장 payload와 외부 플랫폼으로 전송하는 JSON 계약은 다음과 같다.
+주문 트랜잭션이 커밋되면 Outbox 이벤트를 가능한 즉시 비동기로 Kafka topic `cafe.order-paid`에 발행한다.
+topic 이름은 `ORDER_PAID_TOPIC` 환경 변수 또는 `cafe.order.kafka.topic.order-paid` 설정으로 바꿀 수 있다.
+`order_event_outbox.payload`에는 Kafka로 발행할 원본 JSON을 저장한다.
+저장 payload와 Kafka 메시지 value JSON 계약은 다음과 같다.
 
 ```json
 {
@@ -182,8 +183,8 @@ Authorization: Bearer {accessToken}
 | `items[].quantity` | int | O | 주문 수량 |
 | `paymentAmount` | long | O | 결제금액 |
 
-현재 구현은 실제 외부 플랫폼 대신 mock 전송 지점으로 즉시 전송하고, 성공하면 Outbox 이벤트를 `SENT`로 표시한다.
-전송에 실패하면 주문과 결제는 되돌리지 않고 `retry_count`를 1 증가시킨 뒤 `next_retry_at`에 다음 재시도 시각을 저장한다.
+현재 구현은 Kafka Producer로 주문 완료 이벤트를 발행하고, 성공하면 Outbox 이벤트를 `SENT`로 표시한다.
+Kafka 발행에 실패하면 주문과 결제는 되돌리지 않고 `retry_count`를 1 증가시킨 뒤 `next_retry_at`에 다음 재시도 시각을 저장한다.
 재전송 작업은 재시도 시각이 지난 `PENDING` 이벤트를 주기적으로 다시 전송한다.
 3회 실패한 이벤트는 `FAILED`로 표시하고 더 이상 자동으로 재전송하지 않는다.
 

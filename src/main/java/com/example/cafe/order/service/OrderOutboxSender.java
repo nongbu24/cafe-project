@@ -22,16 +22,16 @@ public class OrderOutboxSender {
 
 	private static final Logger log = LoggerFactory.getLogger(OrderOutboxSender.class);
 
-	private final MockOrderDataCollector dataCollector;
+	private final OrderPaidKafkaProducer orderPaidKafkaProducer;
 	private final OrderEventOutboxRepository orderEventOutboxRepository;
 	private final ObjectMapper objectMapper;
 
 	public OrderOutboxSender(
-		MockOrderDataCollector dataCollector,
+		OrderPaidKafkaProducer orderPaidKafkaProducer,
 		OrderEventOutboxRepository orderEventOutboxRepository,
 		ObjectMapper objectMapper
 	) {
-		this.dataCollector = dataCollector;
+		this.orderPaidKafkaProducer = orderPaidKafkaProducer;
 		this.orderEventOutboxRepository = orderEventOutboxRepository;
 		this.objectMapper = objectMapper;
 	}
@@ -46,7 +46,7 @@ public class OrderOutboxSender {
 		}
 
 		try {
-			dataCollector.send(toPayload(event));
+			orderPaidKafkaProducer.send(toPayload(event));
 			event.markSent(DateTimeUtils.utcNow());
 		} catch (Exception exception) {
 			event.markSendFailed(DateTimeUtils.utcNow());

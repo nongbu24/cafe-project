@@ -277,8 +277,8 @@ JWT 블랙리스트와 인기 메뉴 집계 데이터는 관계형 DB 테이블�
 | `sent_at` | `TIMESTAMP` | NULL | 전송 성공 시각 |
 | `created_at` | `TIMESTAMP` | NOT NULL | 이벤트 생성 시각 |
 
-현재 구현은 주문 트랜잭션 커밋 후 mock 전송 지점으로 이벤트를 전송하고, 성공하면 `SENT`로 표시한다.
-전송에 실패하면 `retry_count`를 1 증가시키고 `next_retry_at`에 다음 재시도 시각을 저장한다.
+현재 구현은 주문 트랜잭션 커밋 후 Kafka topic `cafe.order-paid`로 이벤트를 발행하고, 성공하면 `SENT`로 표시한다.
+Kafka 발행에 실패하면 `retry_count`를 1 증가시키고 `next_retry_at`에 다음 재시도 시각을 저장한다.
 재전송 작업은 재시도 시각이 지난 `PENDING` 이벤트를 주기적으로 다시 전송한다.
 3회 실패한 이벤트는 `FAILED`로 표시하고 더 이상 자동 재전송하지 않는다.
 `order_id`의 유일 제약으로 같은 주문의 이벤트가 중복 생성되는 것을 막는다.

@@ -18,7 +18,7 @@
 - 런타임·프레임워크: Spring Boot 4.1.0, Spring MVC, Bean Validation, Spring Data JPA, QueryDSL, Flyway, WebSocket
 - 패키지·빌드 도구: Gradle Wrapper 9.5.1, Groovy DSL
 - 데이터 저장소: 애플리케이션 기본 개발 데이터베이스는 인메모리 H2, 운영 목표 데이터베이스는 PostgreSQL
-- 로컬 인프라: Docker Compose, PostgreSQL 17-alpine, Redis 7.4-alpine
+- 로컬 인프라: Docker Compose, PostgreSQL 17-alpine, Redis 7.4-alpine, Kafka 4.1.0
 - 테스트 도구: JUnit Jupiter, Spring Boot Test, Spring Data JPA Test, Spring MVC Test,
   WebSocket Test
 - 현재 테스트 방식: `@SpringBootTest`, MockMvc와 인메모리 H2 중심의 통합 테스트. 실제 Redis,
@@ -30,7 +30,7 @@
 | `settings.gradle` | Gradle 프로젝트 이름 |
 | `gradle/wrapper/gradle-wrapper.properties` | Gradle Wrapper 버전 |
 | `.env.example` | 로컬 환경 변수 이름과 예시. 비밀 값은 비우며 Compose용 실제 값은 Git에서 제외되는 `.env`에 저장 가능 |
-| `docker-compose.yml` | 로컬 PostgreSQL·Redis 컨테이너, 볼륨과 상태 확인 설정 |
+| `docker-compose.yml` | 로컬 PostgreSQL·Redis·Kafka 컨테이너, 볼륨과 상태 확인 설정 |
 | `src/main/java/com/example/cafe/` | 애플리케이션 Java 코드 |
 | `src/main/resources/application.properties` | 애플리케이션 설정 |
 | `src/main/resources/data.sql` | 인메모리 H2의 로컬 초기 데이터와 통합 테스트 fixture |
@@ -73,6 +73,7 @@
 | PostgreSQL 프로필 실행 | `SPRING_PROFILES_ACTIVE=postgres ./gradlew bootRun` | PostgreSQL 접속 환경 변수와 Redis 접속 정보 |
 | Compose 설정 검사 | `docker compose config --quiet` | Docker Compose와 필수 비밀번호 환경 변수 |
 | 로컬 Redis 실행 | `docker compose up -d redis` | Docker Engine과 필수 비밀번호 환경 변수 |
+| 로컬 Kafka 실행 | `docker compose up -d kafka` | Docker Engine |
 | 전체 로컬 인프라 실행 | `docker compose up -d` | Docker Engine과 필수 비밀번호 환경 변수 |
 | 로컬 인프라 상태 확인 | `docker compose ps` | Docker Engine과 실행할 때 사용한 필수 비밀번호 환경 변수 |
 | 로컬 인프라 종료 | `docker compose down` | 같은 환경 변수 필요. 이름 있는 볼륨은 유지 |
@@ -86,8 +87,8 @@
 Gradle toolchain은 JDK 21을 사용한다. JDK 21이 로컬에 없을 때 자동 프로비저닝할 수 있도록
 `settings.gradle`에 Foojay toolchain resolver convention 플러그인을 설정한다.
 
-현재 자동 테스트는 인메모리 H2와 Redis 대체 구현·mock을 사용하므로 Docker Compose를 실행하지 않아도 된다.
-반대로 실제 Redis 연결과 Compose PostgreSQL 연결은 자동 테스트가 보장하지 않는다.
+현재 자동 테스트는 인메모리 H2와 Redis 대체 구현·Kafka Producer mock을 사용하므로 Docker Compose를 실행하지 않아도 된다.
+반대로 실제 Redis 연결, Compose PostgreSQL 연결, Kafka broker 발행은 자동 테스트가 보장하지 않는다.
 
 Docker Compose는 저장소 루트의 `.env`를 자동으로 읽는다. `bootRun`은 `build.gradle` 설정을 통해
 저장소 루트의 `.env`를 읽고, 같은 이름의 시스템 환경 변수가 이미 있으면 시스템 환경 변수를 우선한다.
@@ -166,15 +167,16 @@ PostgreSQL datasource는 `postgres` 프로필에서만 활성화하며 `POSTGRES
 - 애플리케이션 환경 변수: JWT 서명 키 `JWT_SECRET`, Redis 연결용 `REDIS_HOST`, `REDIS_PORT`,
   `REDIS_PASSWORD`, PostgreSQL 프로필 연결용 `POSTGRES_HOST`, `POSTGRES_PORT`, `POSTGRES_DB`,
   `POSTGRES_USER`, `POSTGRES_PASSWORD`, 포트원 연동용 `PORTONE_STORE_ID`, `PORTONE_CHANNEL_KEY`,
-  `PORTONE_API_SECRET`
+  `PORTONE_API_SECRET`, Kafka 연결용 `KAFKA_BOOTSTRAP_SERVERS`, 주문 완료 이벤트 발행용 `ORDER_PAID_TOPIC`, `ORDER_PAID_SEND_TIMEOUT_SECONDS`
 - 로컬 Compose 환경 변수: `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_PORT`,
-  `REDIS_PORT`, `REDIS_PASSWORD`. `POSTGRES_PASSWORD`와 `REDIS_PASSWORD`는 필수
+  `REDIS_PORT`, `REDIS_PASSWORD`, `KAFKA_PORT`. `POSTGRES_PASSWORD`와 `REDIS_PASSWORD`는 필수
 - `.env`는 Git에서 제외되며 Docker Compose와 `bootRun`이 읽는다. 실제 값을 `.env.example`, 문서,
   코드, 로그나 Git 관리 파일에 기록하지 않는다.
 - 로컬 실행 전제: JDK 21. Docker 기반 Redis·PostgreSQL을 사용할 때는 Docker Engine과 Docker Compose 필요
 - 자동 테스트 전제: JDK 21. 외부 Redis·PostgreSQL은 사용하지 않음
 - 최초 빌드 전제: Gradle 배포 파일과 Maven 의존성을 내려받을 네트워크 연결
-- 외부 서비스: JWT 블랙리스트용 Redis, PostgreSQL, 포인트 충전 결제 검증용 포트원 V2 REST API. 로컬 Redis와 PostgreSQL은 Docker Compose로 제공하며,
+- 외부 서비스: JWT 블랙리스트용 Redis, PostgreSQL, 포인트 충전 결제 검증용 포트원 V2 REST API,
+  주문 완료 이벤트 발행용 Kafka. 로컬 Redis, PostgreSQL, Kafka는 Docker Compose로 제공하며,
   실제 운영 연결 위치와 제공 방식은 배포 환경에서 제공한다.
 - 저장소 내 CI 설정: 미사용. 현재 검증은 로컬 Gradle 명령으로 수행
 - 배포·운영 환경: 미정
