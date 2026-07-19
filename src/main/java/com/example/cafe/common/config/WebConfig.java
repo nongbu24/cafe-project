@@ -19,6 +19,8 @@ public class WebConfig implements WebMvcConfigurer {
 		registry.addInterceptor(authenticationInterceptor)
 			.addPathPatterns(
 				"/api/v1/auth/logout",
+				"/api/v1/admin/users",
+				"/api/v1/admin/users/**",
 				"/api/v1/users/me",
 				"/api/v1/users/me/point-charges",
 				"/api/v1/orders"
