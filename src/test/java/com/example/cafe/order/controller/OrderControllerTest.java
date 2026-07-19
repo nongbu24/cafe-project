@@ -16,6 +16,7 @@ import com.example.cafe.auth.service.JwtTokenProvider;
 import com.example.cafe.auth.store.TokenBlacklistStore;
 import com.example.cafe.order.dto.OrderPaidEventPayload;
 import com.example.cafe.order.service.MockOrderDataCollector;
+import com.example.cafe.order.service.OrderOutboxRetryService;
 import com.example.cafe.user.entity.User;
 import com.example.cafe.user.repository.UserRepository;
 import java.time.LocalDateTime;
@@ -61,6 +62,9 @@ class OrderControllerTest {
 
 	@Autowired
 	private UserRepository userRepository;
+
+	@Autowired
+	private OrderOutboxRetryService orderOutboxRetryService;
 
 	@MockitoBean
 	private MockOrderDataCollector dataCollector;
@@ -235,7 +239,47 @@ class OrderControllerTest {
 		assertThat(findPointBalance()).isEqualTo(7000);
 		assertThat(countOrders()).isEqualTo(1);
 		assertThat(countPaymentTransactions()).isEqualTo(1);
+		waitForOutboxRetryCount(1);
 		assertThat(findOutboxStatus()).isEqualTo("PENDING");
+		assertThat(findOutboxRetryCount()).isEqualTo(1);
+		assertThat(findOutboxNextRetryAt()).isNotNull();
+	}
+
+	@Test
+	void Outbox_전송에_실패한_이벤트는_재시도_시각이_되면_다시_전송한다() throws Exception {
+		doThrow(new RuntimeException("collector down"))
+			.doNothing()
+			.when(dataCollector)
+			.send(any(OrderPaidEventPayload.class));
+
+		mockMvc.perform(post("/api/v1/orders")
+				.header("Authorization", bearerToken())
+				.contentType(MediaType.APPLICATION_JSON)
+				.content(orderContent(MENU_ID, 1)))
+			.andExpect(status().isCreated());
+
+		Long eventId = findOnlyOutboxId();
+		waitForOutboxRetryCount(1);
+		assertThat(findOutboxStatus()).isEqualTo("PENDING");
+
+		jdbcTemplate.update(
+			"UPDATE order_event_outbox SET next_retry_at = ? WHERE id = ?",
+			LocalDateTime.of(2000, 1, 1, 0, 0),
+			eventId
+		);
+
+		orderOutboxRetryService.resendDueEvents();
+
+		verify(dataCollector, timeout(1000).times(2)).send(argThat(payload ->
+			payload.eventId().equals(eventId)
+				&& payload.userId() == USER_ID
+				&& payload.items().size() == 1
+				&& payload.items().getFirst().menuId() == MENU_ID
+				&& payload.paymentAmount() == 5000
+		));
+		waitForOutboxStatus("SENT");
+		assertThat(findOutboxRetryCount()).isEqualTo(1);
+		assertThat(findOutboxNextRetryAt()).isNull();
 	}
 
 	@Test
@@ -493,6 +537,20 @@ class OrderControllerTest {
 		);
 	}
 
+	private Integer findOutboxRetryCount() {
+		return jdbcTemplate.queryForObject(
+			"SELECT retry_count FROM order_event_outbox",
+			Integer.class
+		);
+	}
+
+	private LocalDateTime findOutboxNextRetryAt() {
+		return jdbcTemplate.queryForObject(
+			"SELECT next_retry_at FROM order_event_outbox",
+			LocalDateTime.class
+		);
+	}
+
 	private Long countSentOutbox() {
 		return jdbcTemplate.queryForObject(
 			"SELECT COUNT(*) FROM order_event_outbox WHERE status = 'SENT'",
@@ -548,6 +606,18 @@ class OrderControllerTest {
 		}
 
 		assertThat(findOutboxStatus()).isEqualTo(expectedStatus);
+	}
+
+	private void waitForOutboxRetryCount(int expectedCount) throws InterruptedException {
+		for (int attempt = 0; attempt < 20; attempt++) {
+			if (findOutboxRetryCount() == expectedCount) {
+				return;
+			}
+
+			Thread.sleep(50);
+		}
+
+		assertThat(findOutboxRetryCount()).isEqualTo(expectedCount);
 	}
 
 	private void waitForSentOutboxCount(long expectedCount) throws InterruptedException {

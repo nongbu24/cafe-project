@@ -13,11 +13,15 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.OneToOne;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
+import java.time.Duration;
 import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "order_event_outbox")
 public class OrderEventOutbox {
+
+	private static final int MAX_RETRY_COUNT = 3;
+	private static final Duration RETRY_DELAY = Duration.ofMinutes(1);
 
 	@Id
 	@GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -75,6 +79,20 @@ public class OrderEventOutbox {
 	public void markSent(LocalDateTime sentAt) {
 		this.status = OrderEventStatus.SENT;
 		this.sentAt = sentAt;
+		this.nextRetryAt = null;
+	}
+
+	public void markSendFailed(LocalDateTime failedAt) {
+		this.retryCount++;
+		this.sentAt = null;
+		if (retryCount >= MAX_RETRY_COUNT) {
+			this.status = OrderEventStatus.FAILED;
+			this.nextRetryAt = null;
+			return;
+		}
+
+		this.status = OrderEventStatus.PENDING;
+		this.nextRetryAt = failedAt.plus(RETRY_DELAY);
 	}
 
 	public Long getId() {
@@ -95,5 +113,13 @@ public class OrderEventOutbox {
 
 	public OrderEventStatus getStatus() {
 		return status;
+	}
+
+	public int getRetryCount() {
+		return retryCount;
+	}
+
+	public LocalDateTime getNextRetryAt() {
+		return nextRetryAt;
 	}
 }
