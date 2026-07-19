@@ -11,7 +11,7 @@ DB가 직접 보장하는 테이블, 기본값, CHECK, FK와 인덱스는 Flyway
 - 카페 메뉴 목록 조회
 - 회원가입, 로그인, 로그아웃과 회원탈퇴
 - 회원별 장바구니 자동 생성
-- 회원 포인트 충전
+- 포트원 결제 웹훅 기반 회원 포인트 충전
 - 여러 메뉴와 수량을 포함한 메뉴 주문 및 포인트 결제
 - 주문 내역의 데이터 수집 플랫폼 전송
 - 최근 7일간 인기 메뉴 3개 조회
@@ -23,6 +23,7 @@ DB가 직접 보장하는 테이블, 기본값, CHECK, FK와 인덱스는 Flyway
 ```mermaid
 erDiagram
     USERS ||--o{ POINT_TRANSACTION : "포인트 거래"
+    USERS ||--o{ POINT_CHARGE_PAYMENT : "포인트 충전 결제"
     USERS ||--|| CARTS : "장바구니"
     CARTS ||--o{ CART_ITEMS : "장바구니 항목"
     MENUS ||--o{ CART_ITEMS : "장바구니 메뉴"
@@ -59,6 +60,18 @@ erDiagram
         BIGINT amount
         BIGINT balance_after
         TIMESTAMP created_at
+    }
+
+    POINT_CHARGE_PAYMENT {
+        BIGINT id PK
+        BIGINT user_id FK
+        VARCHAR payment_id UK
+        BIGINT amount
+        VARCHAR status
+        VARCHAR portone_transaction_id
+        TIMESTAMP paid_at
+        TIMESTAMP created_at
+        TIMESTAMP updated_at "NULL until modified"
     }
 
     CARTS {
@@ -167,7 +180,28 @@ JWT 블랙리스트는 관계형 DB 테이블이 아니므로 ERD에 포함하�
 `amount`는 항상 양수로 저장하고 `type`으로 증가와 감소를 구분한다.
 `PAYMENT`이면 `order_id`가 반드시 존재하고, `CHARGE`이면 `order_id`가 없어야 한다.
 
-### 3.4 `carts`
+### 3.4 `point_charge_payment`
+
+포인트 충전을 위해 서버가 생성한 포트원 결제 대기와 완료 상태를 저장한다.
+
+| 컬럼 | 타입 | 제약조건 | 설명 |
+|---|---|---|---|
+| `id` | `BIGINT` | PK, 자동 증가 | 포인트 충전 결제 식별값 |
+| `user_id` | `BIGINT` | NOT NULL, FK → `users.id` | 충전 회원 |
+| `payment_id` | `VARCHAR(64)` | NOT NULL, UNIQUE | 서버가 생성해 포트원 결제 식별값으로 사용하는 값 |
+| `amount` | `BIGINT` | NOT NULL, 1 이상 | 충전 결제 금액 |
+| `status` | `VARCHAR(20)` | NOT NULL | `READY` 또는 `PAID` |
+| `portone_transaction_id` | `VARCHAR(100)` | NULL | 포트원 결제 시도 식별값 |
+| `paid_at` | `TIMESTAMP` | NULL | 포인트 적립 완료 시각 |
+| `created_at` | `TIMESTAMP` | NOT NULL | 생성 시각 |
+| `updated_at` | `TIMESTAMP` | NULL | 마지막 수정 시각. 생성 이후 수정되지 않았으면 `NULL` |
+
+충전 결제 준비 API는 `READY` 상태의 행을 생성하고 회원 잔액은 변경하지 않는다.
+포트원 `Transaction.Paid` 웹훅 수신 후 결제 단건 조회 결과의 상태, 상점 식별값과 금액이 일치하면
+회원 행을 비관적 쓰기 잠금으로 조회해 잔액을 증가시키고, `CHARGE` 포인트 거래를 저장한 뒤 이 테이블을 `PAID`로 변경한다.
+`payment_id`의 유일 제약과 행 잠금으로 같은 웹훅의 중복 적립을 막는다.
+
+### 3.5 `carts`
 
 회원별 장바구니를 저장한다. 회원 생성 시 장바구니도 자동 생성하며 회원 1명은 장바구니 1개만 가진다.
 
@@ -178,7 +212,7 @@ JWT 블랙리스트는 관계형 DB 테이블이 아니므로 ERD에 포함하�
 | `created_at` | `TIMESTAMP` | NOT NULL | 생성 시각 |
 | `updated_at` | `TIMESTAMP` | NULL | 마지막 수정 시각. 생성 이후 수정되지 않았으면 `NULL` |
 
-### 3.5 `cart_items`
+### 3.6 `cart_items`
 
 장바구니에 담긴 메뉴와 수량을 저장한다.
 
@@ -195,7 +229,7 @@ JWT 블랙리스트는 관계형 DB 테이블이 아니므로 ERD에 포함하�
 수량 변경 API에서 `quantity`를 `0`으로 요청하면 해당 장바구니 항목을 삭제한다.
 장바구니 전체 비우기 API 호출 시나 장바구니 주문 완료 시에는 해당 장바구니의 모든 항목을 삭제한다.
 
-### 3.6 `orders`
+### 3.7 `orders`
 
 결제가 완료된 주문의 헤더 정보를 저장한다. 한 주문은 하나 이상의 주문 항목을 가진다.
 
@@ -210,7 +244,7 @@ JWT 블랙리스트는 관계형 DB 테이블이 아니므로 ERD에 포함하�
 
 회원 잔액 차감, 포인트 거래 저장, 주문 저장과 Outbox 저장은 하나의 DB 트랜잭션으로 처리한다.
 
-### 3.7 `order_items`
+### 3.8 `order_items`
 
 주문에 포함된 메뉴별 상세 항목을 저장한다.
 
@@ -226,7 +260,7 @@ JWT 블랙리스트는 관계형 DB 테이블이 아니므로 ERD에 포함하�
 메뉴 이름과 단가를 주문 항목에 복사하므로 이후 메뉴가 변경되어도 과거 주문 정보가 유지된다.
 주문 총액은 각 주문 항목의 `unit_price * quantity` 합계와 같다.
 
-### 3.8 `order_event_outbox`
+### 3.9 `order_event_outbox`
 
 결제가 완료된 주문을 외부 데이터 수집 플랫폼으로 안정적으로 전송하기 위한 이벤트를 저장한다.
 
@@ -255,6 +289,7 @@ JWT 블랙리스트는 관계형 DB 테이블이 아니므로 ERD에 포함하�
 | `idx_order_items_menu_order` | `order_items(menu_id, order_id)` | 최근 7일 결제 주문을 메뉴별로 집계 |
 | `idx_cart_items_cart` | `cart_items(cart_id)` | 장바구니별 항목 조회 |
 | `idx_point_transaction_user_created` | `point_transaction(user_id, created_at)` | 회원별 포인트 이력 조회와 감사 |
+| `idx_point_charge_payment_user_created` | `point_charge_payment(user_id, created_at)` | 회원별 포인트 충전 결제 조회와 감사 |
 | `idx_outbox_status_retry` | `order_event_outbox(status, next_retry_at)` | 향후 전송 실패 이벤트 재시도 조회 |
 
 ## 5. 인기 메뉴 집계 규칙

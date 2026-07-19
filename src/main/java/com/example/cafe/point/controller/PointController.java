@@ -2,8 +2,8 @@ package com.example.cafe.point.controller;
 
 import com.example.cafe.auth.service.AuthenticationInterceptor;
 import com.example.cafe.common.response.ApiResponse;
+import com.example.cafe.point.dto.PointChargePaymentResponse;
 import com.example.cafe.point.dto.PointChargeRequest;
-import com.example.cafe.point.dto.PointChargeResponse;
 import com.example.cafe.point.service.PointService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
@@ -23,12 +23,12 @@ public class PointController {
 	}
 
 	@PostMapping
-	public ApiResponse<PointChargeResponse> charge(
+	public ApiResponse<PointChargePaymentResponse> prepareChargePayment(
 		@RequestBody @Valid PointChargeRequest request,
 		HttpServletRequest httpServletRequest
 	) {
 		long userId = (long) httpServletRequest.getAttribute(AuthenticationInterceptor.AUTHENTICATED_USER_ID);
 
-		return ApiResponse.success(pointService.charge(userId, request.amount()));
+		return ApiResponse.success(pointService.prepareChargePayment(userId, request.amount()));
 	}
 }

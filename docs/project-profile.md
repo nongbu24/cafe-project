@@ -10,7 +10,7 @@
 - 이름: cafe
 - 목적: 관리자와 회원이 사용하는 카페 서비스의 백엔드 기능 제공
 - 주요 사용자: 관리자, 회원
-- 현재 상태: 인증, 메뉴, 포인트, 주문 주요 도메인 REST API, 장바구니 도메인 기반 구조와 관련 통합 테스트가 존재하는 초기 개발 단계
+- 현재 상태: 인증, 메뉴, 포인트, 주문 주요 도메인 REST API, 장바구니 도메인 기반 구조, 포트원 포인트 충전 결제 준비와 웹훅 처리, 관련 통합 테스트가 존재하는 초기 개발 단계
 
 ## 기술과 구조
 
@@ -165,7 +165,8 @@ PostgreSQL datasource는 `postgres` 프로필에서만 활성화하며 `POSTGRES
 
 - 애플리케이션 환경 변수: JWT 서명 키 `JWT_SECRET`, Redis 연결용 `REDIS_HOST`, `REDIS_PORT`,
   `REDIS_PASSWORD`, PostgreSQL 프로필 연결용 `POSTGRES_HOST`, `POSTGRES_PORT`, `POSTGRES_DB`,
-  `POSTGRES_USER`, `POSTGRES_PASSWORD`
+  `POSTGRES_USER`, `POSTGRES_PASSWORD`, 포트원 연동용 `PORTONE_STORE_ID`, `PORTONE_CHANNEL_KEY`,
+  `PORTONE_API_SECRET`
 - 로컬 Compose 환경 변수: `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_PORT`,
   `REDIS_PORT`, `REDIS_PASSWORD`. `POSTGRES_PASSWORD`와 `REDIS_PASSWORD`는 필수
 - `.env`는 Git에서 제외되며 Docker Compose와 `bootRun`이 읽는다. 실제 값을 `.env.example`, 문서,
@@ -173,7 +174,7 @@ PostgreSQL datasource는 `postgres` 프로필에서만 활성화하며 `POSTGRES
 - 로컬 실행 전제: JDK 21. Docker 기반 Redis·PostgreSQL을 사용할 때는 Docker Engine과 Docker Compose 필요
 - 자동 테스트 전제: JDK 21. 외부 Redis·PostgreSQL은 사용하지 않음
 - 최초 빌드 전제: Gradle 배포 파일과 Maven 의존성을 내려받을 네트워크 연결
-- 외부 서비스: JWT 블랙리스트용 Redis, PostgreSQL. 로컬 Redis와 PostgreSQL은 Docker Compose로 제공하며,
+- 외부 서비스: JWT 블랙리스트용 Redis, PostgreSQL, 포인트 충전 결제 검증용 포트원 V2 REST API. 로컬 Redis와 PostgreSQL은 Docker Compose로 제공하며,
   실제 운영 연결 위치와 제공 방식은 배포 환경에서 제공한다.
 - 저장소 내 CI 설정: 미사용. 현재 검증은 로컬 Gradle 명령으로 수행
 - 배포·운영 환경: 미정

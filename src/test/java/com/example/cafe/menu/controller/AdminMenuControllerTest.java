@@ -50,6 +50,7 @@ class AdminMenuControllerTest {
 	@BeforeEach
 	void setUp() {
 		jdbcTemplate.update("DELETE FROM order_event_outbox");
+		jdbcTemplate.update("DELETE FROM point_charge_payment");
 		jdbcTemplate.update("DELETE FROM point_transaction");
 		jdbcTemplate.update("DELETE FROM order_items");
 		jdbcTemplate.update("DELETE FROM orders");
