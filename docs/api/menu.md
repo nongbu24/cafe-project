@@ -138,3 +138,166 @@ GET /api/v1/menus/popular
 - 정렬 결과 중 최대 3개를 반환한다.
 
 `rank`는 동률 공동 순위가 아니라 최종 정렬 결과에서의 위치다. 따라서 항상 1, 2, 3 순서다.
+
+## 3. 관리자 메뉴 생성
+
+관리자가 새 메뉴를 등록한다. 생성된 메뉴의 기본 상태는 판매중(`AVAILABLE`)이다.
+
+### 요청
+
+```http
+POST /api/v1/admin/menus
+Authorization: Bearer {accessToken}
+Content-Type: application/json
+
+{
+  "name": "바닐라 콜드브루",
+  "price": 5800
+}
+```
+
+| 필드 | 타입 | 필수 | 설명 |
+|---|---|---|---|
+| `name` | string | O | 메뉴 이름. 공백만 입력할 수 없으며 100자 이하 |
+| `price` | long | O | 메뉴 가격. 1 이상 |
+
+### 성공 응답
+
+`201 Created`
+
+```http
+Location: /api/v1/admin/menus/101
+```
+
+```json
+{
+  "code": "SUCCESS",
+  "message": "메뉴 생성이 완료되었습니다.",
+  "data": {
+    "menuId": 101,
+    "name": "바닐라 콜드브루",
+    "price": 5800,
+    "status": "AVAILABLE"
+  }
+}
+```
+
+### 오류
+
+- 인증하지 않으면 `AUTHENTICATION_REQUIRED` 오류와 함께 `401 Unauthorized`를 반환한다.
+- 일반 회원이 요청하면 `FORBIDDEN` 오류와 함께 `403 Forbidden`을 반환한다.
+- `name`이 비어 있거나 100자를 초과하면 `INVALID_REQUEST` 오류와 함께 `400 Bad Request`를 반환한다.
+- `price`가 없거나 1보다 작으면 `INVALID_REQUEST` 오류와 함께 `400 Bad Request`를 반환한다.
+
+## 4. 관리자 메뉴 상태 변경
+
+관리자가 메뉴 상태를 판매중, 품절 또는 단종으로 변경한다.
+
+### 요청
+
+```http
+PATCH /api/v1/admin/menus/1/status
+Authorization: Bearer {accessToken}
+Content-Type: application/json
+
+{
+  "status": "DISCONTINUED"
+}
+```
+
+| 경로 변수 | 타입 | 필수 | 설명 |
+|---|---|---|---|
+| `menuId` | long | O | 상태를 변경할 메뉴 식별값 |
+
+| 필드 | 타입 | 필수 | 설명 |
+|---|---|---|---|
+| `status` | string | O | 변경할 메뉴 상태. `AVAILABLE`, `SOLD_OUT`, `DISCONTINUED` 중 하나 |
+
+### 성공 응답
+
+`200 OK`
+
+```json
+{
+  "code": "SUCCESS",
+  "message": "메뉴 상태 변경이 완료되었습니다.",
+  "data": {
+    "menuId": 1,
+    "name": "아메리카노",
+    "price": 4500,
+    "status": "DISCONTINUED"
+  }
+}
+```
+
+### 오류
+
+- 인증하지 않으면 `AUTHENTICATION_REQUIRED` 오류와 함께 `401 Unauthorized`를 반환한다.
+- 일반 회원이 요청하면 `FORBIDDEN` 오류와 함께 `403 Forbidden`을 반환한다.
+- 존재하지 않는 메뉴이면 `MENU_NOT_FOUND` 오류와 함께 `404 Not Found`를 반환한다.
+- `status`가 없거나 허용된 상태값이 아니면 `INVALID_REQUEST` 오류와 함께 `400 Bad Request`를 반환한다.
+
+## 5. 관리자 메뉴 목록 조회
+
+관리자가 단종 메뉴를 포함해 전체 메뉴를 조회한다.
+
+### 요청
+
+```http
+GET /api/v1/admin/menus?page=0&size=100&status=DISCONTINUED
+Authorization: Bearer {accessToken}
+```
+
+요청 본문은 없다.
+
+| 쿼리 파라미터 | 타입 | 필수 | 기본값 | 설명 |
+|---|---|---|---|---|
+| `page` | int | X | `0` | 조회할 페이지 번호. 0부터 시작하며 0 이상 |
+| `size` | int | X | `10` | 한 페이지의 메뉴 수. 1 이상 100 이하 |
+| `status` | string | X | 없음 | 조회할 메뉴 상태. `AVAILABLE`, `SOLD_OUT`, `DISCONTINUED` 중 하나 |
+
+### 성공 응답
+
+`200 OK`
+
+```json
+{
+  "code": "SUCCESS",
+  "message": "관리자 메뉴 목록 조회가 완료되었습니다.",
+  "data": {
+    "content": [
+      {
+        "menuId": 1,
+        "name": "아메리카노",
+        "price": 4500,
+        "status": "AVAILABLE",
+        "orderCount": 12
+      },
+      {
+        "menuId": 91,
+        "name": "단종 메뉴",
+        "price": 4500,
+        "status": "DISCONTINUED",
+        "orderCount": 3
+      }
+    ],
+    "page": 0,
+    "size": 100,
+    "totalElements": 100,
+    "totalPages": 1,
+    "first": true,
+    "last": true
+  }
+}
+```
+
+`status`가 없으면 판매중(`AVAILABLE`), 품절(`SOLD_OUT`), 단종(`DISCONTINUED`) 메뉴 전체를 메뉴 ID 오름차순으로 반환한다.
+`status`가 있으면 해당 상태의 메뉴만 메뉴 ID 오름차순으로 반환한다.
+`orderCount`는 해당 메뉴로 생성된 전체 주문 수이며, 주문이 없으면 `0`이다.
+
+### 오류
+
+- 인증하지 않으면 `AUTHENTICATION_REQUIRED` 오류와 함께 `401 Unauthorized`를 반환한다.
+- 일반 회원이 요청하면 `FORBIDDEN` 오류와 함께 `403 Forbidden`을 반환한다.
+- `page`가 0보다 작거나 `size`가 1 미만 또는 100을 초과하면 `INVALID_REQUEST` 오류와 함께 `400 Bad Request`를 반환한다.
+- `status`가 허용된 상태값이 아니면 `INVALID_REQUEST` 오류와 함께 `400 Bad Request`를 반환한다.

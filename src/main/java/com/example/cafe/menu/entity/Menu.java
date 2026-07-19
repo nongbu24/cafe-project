@@ -31,6 +31,16 @@ public class Menu extends BaseEntity {
 	protected Menu() {
 	}
 
+	private Menu(String name, long price, MenuStatus status) {
+		this.name = name;
+		this.price = price;
+		this.status = status;
+	}
+
+	public static Menu create(String name, long price) {
+		return new Menu(name, price, MenuStatus.AVAILABLE);
+	}
+
 	public Long getId() {
 		return id;
 	}
@@ -45,5 +55,9 @@ public class Menu extends BaseEntity {
 
 	public MenuStatus getStatus() {
 		return status;
+	}
+
+	public void changeStatus(MenuStatus status) {
+		this.status = status;
 	}
 }

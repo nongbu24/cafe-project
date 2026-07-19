@@ -3,6 +3,7 @@ package com.example.cafe.order.repository;
 import static com.example.cafe.menu.entity.QMenu.menu;
 import static com.example.cafe.order.entity.QOrder.order;
 
+import com.example.cafe.menu.dto.MenuOrderCount;
 import com.example.cafe.menu.dto.PopularMenuOrderCount;
 import com.example.cafe.order.entity.OrderStatus;
 import com.querydsl.core.types.Projections;
@@ -45,6 +46,24 @@ public class OrderRepositoryImpl implements OrderRepositoryCustom {
 			.orderBy(order.count().desc(), menu.id.asc())
 			.offset(pageable.getOffset())
 			.limit(pageable.getPageSize())
+			.fetch();
+	}
+
+	@Override
+	public List<MenuOrderCount> countOrdersByMenuIds(List<Long> menuIds) {
+		if (menuIds.isEmpty()) {
+			return List.of();
+		}
+
+		return queryFactory
+			.select(Projections.constructor(
+				MenuOrderCount.class,
+				order.menu.id,
+				order.count()
+			))
+			.from(order)
+			.where(order.menu.id.in(menuIds))
+			.groupBy(order.menu.id)
 			.fetch();
 	}
 }

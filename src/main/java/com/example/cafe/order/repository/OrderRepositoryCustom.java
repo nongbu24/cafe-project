@@ -1,6 +1,7 @@
 package com.example.cafe.order.repository;
 
 import com.example.cafe.menu.dto.PopularMenuOrderCount;
+import com.example.cafe.menu.dto.MenuOrderCount;
 import com.example.cafe.order.entity.OrderStatus;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -14,4 +15,6 @@ public interface OrderRepositoryCustom {
 		LocalDateTime to,
 		Pageable pageable
 	);
+
+	List<MenuOrderCount> countOrdersByMenuIds(List<Long> menuIds);
 }

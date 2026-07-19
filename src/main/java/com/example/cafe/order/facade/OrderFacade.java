@@ -1,6 +1,7 @@
 package com.example.cafe.order.facade;
 
 import com.example.cafe.menu.dto.PopularMenuOrderCount;
+import com.example.cafe.menu.dto.MenuOrderCount;
 import com.example.cafe.order.entity.OrderStatus;
 import com.example.cafe.order.repository.OrderRepository;
 import java.time.LocalDateTime;
@@ -24,5 +25,9 @@ public class OrderFacade {
 		Pageable pageable
 	) {
 		return orderRepository.findPopularMenus(status, from, to, pageable);
+	}
+
+	public List<MenuOrderCount> countOrdersByMenuIds(List<Long> menuIds) {
+		return orderRepository.countOrdersByMenuIds(menuIds);
 	}
 }

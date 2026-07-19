@@ -10,4 +10,6 @@ import org.springframework.data.jpa.repository.JpaRepository;
 public interface MenuRepository extends JpaRepository<Menu, Long> {
 
 	Page<Menu> findAllByStatusIn(Collection<MenuStatus> statuses, Pageable pageable);
+
+	Page<Menu> findAllByStatus(MenuStatus status, Pageable pageable);
 }
