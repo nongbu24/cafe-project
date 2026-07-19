@@ -1,7 +1,8 @@
 # Cafe
 
 관리자와 회원이 사용하는 카페 서비스의 백엔드 애플리케이션입니다.
-현재 범위는 회원 인증, 메뉴 조회, 포인트 충전, 메뉴 주문과 결제, 인기 메뉴 조회입니다.
+현재 범위는 회원 인증과 회원 관리, 메뉴 조회와 관리자 메뉴 관리, 장바구니, 포인트 충전 결제 준비와 포트원 웹훅 처리,
+메뉴 주문과 포인트 결제, 주문 완료 이벤트 전송, 인기 메뉴 조회입니다.
 
 ## 문제 해결 전략 수립
 
@@ -17,17 +18,26 @@ DB 설계의 기준 문서는 [docs/db/ERD.md](docs/db/ERD.md)입니다.
 | `users` | 회원 계정, 권한, 탈퇴 여부, 현재 포인트 잔액 저장 |
 | `menus` | 메뉴 이름, 가격, 판매 상태 저장 |
 | `point_transaction` | 포인트 충전과 결제 사용 이력을 원장 형태로 저장 |
-| `orders` | 결제가 완료된 주문과 주문 당시 메뉴 정보를 저장 |
+| `point_charge_payment` | 포트원 포인트 충전 결제 대기와 완료 상태 저장 |
+| `carts` | 회원별 장바구니 저장 |
+| `cart_items` | 장바구니에 담긴 메뉴와 수량 저장 |
+| `orders` | 결제가 완료된 주문의 헤더 정보 저장 |
+| `order_items` | 주문 당시 메뉴 이름, 단가와 수량 스냅샷 저장 |
 | `order_event_outbox` | 주문 완료 이벤트를 외부 데이터 수집 플랫폼으로 안정적으로 전송하기 위한 Outbox 저장소 |
 
-핵심 관계는 회원이 여러 포인트 거래와 주문을 가질 수 있고, 메뉴는 여러 주문의 대상이 될 수 있으며,
-주문 하나는 주문 완료 이벤트 하나와 연결되는 구조입니다.
+핵심 관계는 회원이 여러 포인트 거래, 포인트 충전 결제와 주문을 가질 수 있고,
+회원 하나는 장바구니 하나를 가지며, 주문 하나는 여러 주문 항목과 주문 완료 이벤트 하나에 연결되는 구조입니다.
 
 ```mermaid
 erDiagram
     USERS ||--o{ POINT_TRANSACTION : "포인트 거래"
+    USERS ||--o{ POINT_CHARGE_PAYMENT : "포인트 충전 결제"
+    USERS ||--|| CARTS : "장바구니"
+    CARTS ||--o{ CART_ITEMS : "장바구니 항목"
+    MENUS ||--o{ CART_ITEMS : "장바구니 메뉴"
     USERS ||--o{ ORDERS : "주문"
-    MENUS ||--o{ ORDERS : "주문 대상"
+    ORDERS ||--o{ ORDER_ITEMS : "주문 항목"
+    MENUS ||--o{ ORDER_ITEMS : "주문 메뉴"
     ORDERS ||--|| ORDER_EVENT_OUTBOX : "전송 이벤트"
 ```
 
@@ -39,9 +49,62 @@ REST API 계약의 기준 문서는 [docs/api/README.md](docs/api/README.md)입�
 | 도메인 | 문서 | 주요 API |
 |---|---|---|
 | 회원 인증 | [docs/api/auth.md](docs/api/auth.md) | 회원가입, 로그인, 로그아웃, 회원탈퇴 |
-| 메뉴 | [docs/api/menu.md](docs/api/menu.md) | 메뉴 목록 조회, 최근 7일 인기 메뉴 조회 |
-| 포인트 | [docs/api/point.md](docs/api/point.md) | 인증 회원 포인트 충전 |
-| 주문 | [docs/api/order.md](docs/api/order.md) | 메뉴 주문과 포인트 결제, 주문 완료 이벤트 전송 |
+| 회원 | [docs/api/user.md](docs/api/user.md) | 내 정보 조회, 비밀번호 변경, 관리자 회원 목록 조회, 관리자 회원 단건 조회 |
+| 메뉴 | [docs/api/menu.md](docs/api/menu.md) | 메뉴 목록 조회, 최근 7일 인기 메뉴 조회, 관리자 메뉴 생성, 관리자 메뉴 상태 변경, 관리자 메뉴 목록 조회 |
+| 장바구니 | [docs/api/cart.md](docs/api/cart.md) | 장바구니 조회, 장바구니 항목 수량 변경, 장바구니 전체 비우기 |
+| 포인트 | [docs/api/point.md](docs/api/point.md) | 포인트 충전 결제 준비, 포트원 결제 웹훅 |
+| 주문 | [docs/api/order.md](docs/api/order.md) | 즉시 메뉴 주문과 포인트 결제, 장바구니 주문과 포인트 결제, 주문 완료 이벤트 전송 |
+
+현재 구현된 엔드포인트는 다음과 같습니다.
+
+| 구분 | 메서드 | 경로 | 설명 |
+|---|---|---|---|
+| 회원 인증 | `POST` | `/api/v1/auth/signup` | 회원가입 |
+| 회원 인증 | `POST` | `/api/v1/auth/login` | 로그인 |
+| 회원 인증 | `POST` | `/api/v1/auth/logout` | 로그아웃 |
+| 회원 | `GET` | `/api/v1/users/me` | 내 정보 조회 |
+| 회원 | `PATCH` | `/api/v1/users/me` | 회원탈퇴 |
+| 회원 | `PATCH` | `/api/v1/users/me/password` | 비밀번호 변경 |
+| 관리자 회원 | `GET` | `/api/v1/admin/users` | 회원 목록 조회 |
+| 관리자 회원 | `GET` | `/api/v1/admin/users/{userId}` | 회원 단건 조회 |
+| 메뉴 | `GET` | `/api/v1/menus` | 메뉴 목록 조회 |
+| 메뉴 | `GET` | `/api/v1/menus/popular` | 최근 7일 인기 메뉴 조회 |
+| 관리자 메뉴 | `POST` | `/api/v1/admin/menus` | 메뉴 생성 |
+| 관리자 메뉴 | `PATCH` | `/api/v1/admin/menus/{menuId}/status` | 메뉴 상태 변경 |
+| 관리자 메뉴 | `GET` | `/api/v1/admin/menus` | 관리자 메뉴 목록 조회 |
+| 장바구니 | `GET` | `/api/v1/carts/me` | 장바구니 조회 |
+| 장바구니 | `PATCH` | `/api/v1/carts/me/items/{menuId}` | 장바구니 항목 수량 변경 |
+| 장바구니 | `DELETE` | `/api/v1/carts/me/items` | 장바구니 전체 비우기 |
+| 포인트 | `POST` | `/api/v1/users/me/point-charges` | 포인트 충전 결제 준비 |
+| 포인트 | `POST` | `/api/v1/portone/webhooks/payments` | 포트원 결제 웹훅 |
+| 주문 | `POST` | `/api/v1/orders` | 즉시 메뉴 주문과 결제 |
+| 주문 | `POST` | `/api/v1/orders/from-cart` | 장바구니 주문과 결제 |
+
+현재는 위 API가 적용되어 있으며, 추후에는 다음 기능을 추가로 적용할 예정입니다.
+아래 경로는 구현 전 후보이므로 실제 설계와 구현 과정에서 조정될 수 있습니다.
+
+| 구분 | 후보 API | 설명 |
+|---|---|---|
+| 관리자 | `PATCH /api/v1/admin/menus/{menuId}/price` | 메뉴 ID 기준으로 가격 변경 |
+| 관리자 | `POST /api/v1/admin/point-refunds` | 결제 오류, 주문 취소 등에 따른 포인트 환불 처리 |
+| 관리자 | `GET /api/v1/admin/users/{userId}/orders` | 특정 회원의 주문 내역 조회 |
+| 관리자 | `PATCH /api/v1/admin/orders/{orderId}/cancel` | 주문 전체 취소 |
+| 관리자 | `PATCH /api/v1/admin/orders/{orderId}/items/{orderItemId}/cancel` | 주문 항목 일부 취소 |
+| 관리자 | `PATCH /api/v1/admin/users/{userId}/status` | 회원 상태 변경 |
+| 회원 | `GET /api/v1/orders` | 로그인한 회원의 주문 내역 조회 |
+| 회원 | `GET /api/v1/orders/{orderId}` | 로그인한 회원의 주문 상세 조회 |
+| 공통 | `GET /api/v1/menus/latest` | 최신 등록 메뉴 10개 조회 |
+| 추가 검토 | `GET /api/v1/menus/search` | 회원이 사용할 수 있는 메뉴 이름 검색 |
+| 추가 검토 | `GET /api/v1/users/me/point-transactions` | 로그인한 회원의 포인트 충전·사용·환불 내역 조회 |
+| 추가 검토 | `GET /api/v1/admin/orders` | 관리자가 전체 주문을 기간, 상태, 회원 기준으로 조회 |
+| 추가 검토 | `GET /api/v1/admin/point-transactions` | 관리자가 전체 포인트 거래 내역을 조회 |
+| 추가 검토 | `GET /api/v1/admin/order-events` | 주문 완료 이벤트 Outbox 상태 조회 |
+| 추가 검토 | `POST /api/v1/admin/order-events/{eventId}/retry` | 실패한 주문 완료 이벤트 수동 재전송 |
+
+API 외에도 추후 다음 개선을 함께 적용할 예정입니다.
+
+- 메뉴 이름이 중복되면 관리자 화면과 운영 문서에서 오해가 생길 수 있으므로 `menus.name`에 UNIQUE 제약을 추가합니다.
+- 관리자와 회원이 사용할 프론트 화면을 만들고, 백엔드 API와 연동한 뒤 배포합니다.
 
 공통 응답은 성공 시 `code`, `message`, `data`를 사용하고, 오류 시 `code`, `message`만 반환합니다.
 API 기본 경로는 `/api/v1`이며, 금액과 포인트는 `1원 = 1P` 기준의 정수 값으로 처리합니다.
@@ -53,26 +116,32 @@ API 기본 경로는 `/api/v1`이며, 금액과 포인트는 `1원 = 1P` 기준�
 첫째, 포인트 잔액은 `users.point_balance`에 현재값으로 저장하고, 모든 충전과 결제 내역은 `point_transaction`에 별도로 남깁니다.
 현재 잔액 조회는 빠르게 처리하면서도, 나중에 문제가 생겼을 때 거래 이력을 추적할 수 있게 하기 위한 설계입니다.
 
-둘째, 주문에는 `menu_name`, `payment_amount`를 함께 저장합니다.
+둘째, 주문은 `orders`와 `order_items`로 나누고 주문 항목에는 `menu_name`, `unit_price`, `quantity`를 저장합니다.
 메뉴 이름이나 가격이 나중에 바뀌더라도 과거 주문 내역은 주문 당시의 정보로 유지되어야 하기 때문입니다.
 
 셋째, 회원탈퇴는 실제 행 삭제가 아니라 `is_deleted` 값을 변경하는 소프트 삭제로 처리합니다.
 주문, 포인트 거래처럼 이미 발생한 이력과의 관계를 보존하면서 탈퇴 회원의 로그인과 인증만 막기 위한 선택입니다.
 
-넷째, 주문 완료 후 외부 데이터 수집 플랫폼으로 보내야 하는 이벤트는 `order_event_outbox`에 먼저 저장합니다.
+넷째, 장바구니는 회원 생성 시 함께 만들고, 장바구니 주문이 결제까지 완료된 경우에만 항목을 비웁니다.
+주문 중 메뉴 상태, 포인트 부족, 인증 실패가 발생하면 장바구니가 그대로 남아 다시 시도할 수 있습니다.
+
+다섯째, 포인트 충전은 결제 준비 API에서 바로 잔액을 올리지 않고 `point_charge_payment`에 `READY` 상태로 먼저 저장합니다.
+포트원 웹훅 수신 후 실제 결제 상태, 상점 식별값과 금액을 다시 확인한 뒤에만 회원 포인트를 적립합니다.
+
+여섯째, 주문 완료 후 외부 데이터 수집 플랫폼으로 보내야 하는 이벤트는 `order_event_outbox`에 먼저 저장합니다.
 주문과 결제는 성공했는데 외부 전송만 실패하는 상황에서도 주문 데이터가 사라지지 않고, 이후 재시도 가능한 구조를 만들기 위한 의도입니다.
 
 ### 선택한 문제해결 전략 및 분석 내용
 
 #### 1. 인증된 사용자 기준으로 기능 처리
 
-포인트 충전과 주문은 요청 본문으로 사용자 ID를 받지 않고 JWT 인증 결과의 사용자만 사용하도록 설계했습니다.
+내 정보 조회, 비밀번호 변경, 포인트 충전, 장바구니와 주문은 요청 본문으로 사용자 ID를 받지 않고 JWT 인증 결과의 사용자만 사용하도록 설계했습니다.
 클라이언트가 다른 사용자의 ID를 임의로 넣어 요청하는 문제를 막기 위해서입니다.
 
 분석한 내용:
 
 - 사용자 ID를 요청 본문에서 받으면 인증 사용자와 요청 대상 사용자가 달라질 수 있습니다.
-- 포인트 충전과 주문은 본인 자산을 바꾸는 기능이므로 인증 주체를 서버에서 확정해야 합니다.
+- 포인트 충전, 장바구니와 주문은 본인 자산 또는 개인 상태를 바꾸는 기능이므로 인증 주체를 서버에서 확정해야 합니다.
 - 로그아웃 또는 탈퇴한 사용자의 토큰은 Redis 블랙리스트와 사용자 상태 검사를 통해 거부해야 합니다.
 
 #### 2. 포인트 정합성을 위한 트랜잭션과 잠금
@@ -100,8 +169,8 @@ API 기본 경로는 `/api/v1`이며, 금액과 포인트는 `1원 = 1P` 기준�
 
 #### 4. 외부 전송 실패에 대비한 Outbox 전략
 
-주문 완료 이벤트는 주문 트랜잭션 안에서 Outbox에 저장한 뒤, 커밋 이후 외부 전송을 시도합니다.
-현재 구현은 mock 전송 지점으로 즉시 전송하지만, 테이블 구조는 향후 실패 재시도까지 확장할 수 있게 설계했습니다.
+주문 완료 이벤트는 주문 트랜잭션 안에서 Outbox에 저장한 뒤, 커밋 이후 Kafka topic `cafe.order-paid`로 발행합니다.
+Kafka 발행에 성공하면 Outbox 이벤트를 `SENT`로 표시하고, 실패하면 재시도 대상으로 남깁니다.
 
 분석한 내용:
 
@@ -123,9 +192,10 @@ API 기본 경로는 `/api/v1`이며, 금액과 포인트는 `1원 = 1P` 기준�
 | H2 | 로컬 개발과 자동 테스트를 빠르게 실행하기 위한 기본 인메모리 DB로 사용했습니다. |
 | PostgreSQL | 운영 목표 DB로, 관계형 데이터와 트랜잭션 정합성이 중요한 주문·포인트 도메인에 적합하다고 판단했습니다. |
 | Redis | 로그아웃된 JWT 블랙리스트와 최근 인기 메뉴 집계 데이터를 빠르게 조회하기 위한 저장소로 선택했습니다. |
+| Kafka | 주문 완료 이벤트를 애플리케이션 트랜잭션 밖의 데이터 수집 플랫폼으로 비동기 전달하기 위해 사용했습니다. |
 | JWT | 서버가 세션을 직접 보관하지 않고 인증 정보를 검증할 수 있어 REST API 인증 방식에 적합하다고 판단했습니다. |
 | BCrypt | 비밀번호를 평문으로 저장하지 않고 단방향 해시로 보호하기 위해 사용했습니다. |
-| Docker Compose | 로컬에서 PostgreSQL과 Redis를 쉽게 실행하고 개발 환경 차이를 줄이기 위해 사용했습니다. |
+| Docker Compose | 로컬에서 PostgreSQL, Redis, Kafka를 쉽게 실행하고 개발 환경 차이를 줄이기 위해 사용했습니다. |
 
 ## 실행과 검증
 
@@ -138,4 +208,4 @@ API 기본 경로는 `/api/v1`이며, 금액과 포인트는 `1원 = 1P` 기준�
 ```
 
 기본 개발 DB는 인메모리 H2입니다.
-PostgreSQL과 Redis는 `docker-compose.yml`로 로컬 실행할 수 있으며, 실제 비밀 값은 Git에 포함하지 않는 `.env`로 관리합니다.
+PostgreSQL, Redis와 Kafka는 `docker-compose.yml`로 로컬 실행할 수 있으며, 실제 비밀 값은 Git에 포함하지 않는 `.env`로 관리합니다.
